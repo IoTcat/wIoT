@@ -1,0 +1,17 @@
+{
+  "name": "wIoT-pages",
+  "version": "0.0.1",
+  "description": "Web document for wIoT.",
+  "main": "index.js",
+  "repository": "https://github.com/IoTcat/wIoT/tree/gh-pages",
+  "scripts": {
+    "start": "docsify",
+    "serve": "docsify serve ."
+  },
+  "author": "IoTcat <i@iotcat.me>",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "docsify-cli": "^4.4.1"
+  }
+}
