@@ -38,6 +38,13 @@
       themeable: {
 
       },
+      tabs: {
+        persist    : true,      // default
+        sync       : false,      // default
+        theme      : 'classic', // default
+        tabComments: true,      // default
+        tabHeadings: false       // default
+      },
       formatUpdated: function(time) {
         return time;
       },
@@ -82,17 +89,25 @@
           hook.afterEach(function(html) {
             return html + footer;
           });
+        },
+        function(hook, vm) {
+          hook.ready(function () {
+            mermaid.initialize({startOnLoad: false});
+          });
+          hook.doneEach(function () {
+            mermaid.init(undefined,'.mermaid');
+          });
         }
       ],
       markdown: {
         renderer: {
           code: function(code, lang) {
-            if (lang === "mermaid") {
-              return (
-                '<div class="mermaid">' + mermaid.render('mermaid-svg-' + num++, code) + "</div>"
-              );
+            var html = '';
+            if(code.match(/^sequenceDiagram/) || code.match(/^graph/) || code.match(/^gantt/)){
+              html = '<div class="mermaid">' + code + '</div>';
             }
-            return this.origin.code.apply(this, arguments);
+            var hl = Prism.highlight(code, Prism.languages[lang] || Prism.languages.markup)
+            return html + '<pre v-pre data-lang="' + lang + '"><code class="lang-' + lang + '">' + hl + '</code></pre>'
           }
         }
       },
@@ -108,7 +123,7 @@
   <script src="//cdn.jsdelivr.net/npm/docsify-copy-code"></script>
   <script src="https://cdn.jsdelivr.net/npm/docsify@4"></script>
   <script src="//unpkg.com/docsify-count/dist/countable.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/docsify-tabs@1"></script>
 
   <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.21.0/components/prism-cpp.min.js"></script>

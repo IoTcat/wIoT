@@ -1,2 +1,3 @@
  - [概述](zh-cn/)
+ - [落地方案](zh-cn/plan)
  - [记录](zh-cn/logbook)
