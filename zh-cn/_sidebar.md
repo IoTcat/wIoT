@@ -1,3 +1,4 @@
  - [概述](zh-cn/)
  - [落地方案](zh-cn/plan)
+ - [第二轮设计](zh-cn/sd-iot)
  - [记录](zh-cn/logbook)
