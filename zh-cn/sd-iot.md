@@ -29,7 +29,7 @@
 
 ![](https://api.yimian.xyz/img/?path=imgbed/img_3a36f4a_1404x1004_8_null_normal.jpeg)
 
-上图是用户眼中的NodeMCU集群，用户的主要任务是编写conrtoller，和编写连接表。一个NodeMCU中可以存在多个controllers。controllers之间以及controllers和pin口的连接将按照连接表来建立。controllers之间的链接也可以跨板子建立，这是板子之间的CoAP通信将被自动建立。
+上图是用户眼中的NodeMCU集群，用户的主要任务是编写conrtoller，和编写连接表。一个NodeMCU中可以存在多个controllers。controllers之间以及controllers和pin口的连接将按照连接表来建立。controllers之间的链接也可以跨板子建立，这时板子之间的CoAP通信将被自动建立。
 
 
 
