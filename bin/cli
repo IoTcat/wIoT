@@ -1,0 +1,22 @@
+#!/usr/bin/env node
+var yargs = require('yargs');
+
+/* CLI code path */
+const src = __dirname + '/../src/cli/';
+
+/* help */
+yargs = require(src + 'help.js')(yargs);
+
+/* version */
+yargs = require(src + 'version.js')(yargs);
+
+/* config */
+//yargs = require(src + 'config.js')(yargs);
+
+/* push */
+yargs = require(src + 'push.js')(yargs);
+
+/* device */
+yargs = require(src + 'device.js')(yargs);
+
+argv = yargs.epilogue("-----------------------").argv;

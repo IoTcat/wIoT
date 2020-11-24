@@ -1,0 +1,24 @@
+{
+  "name": "wIoT",
+  "version": "0.3.0",
+  "description": "A software-defined IoT OS basing on NodeJS.",
+  "main": "index.js",
+  "repository": "git@github.com:iotcat/wIoT",
+  "author": "IoTcat <i@iotcat.me>",
+  "license": "MIT",
+  "bin": {
+    "wiot": "bin/cli"
+  },
+  "devDependencies": {
+    "nodemcu-tool": "^3.2.1"
+  },
+  "dependencies": {
+    "boxen": "^4.2.0",
+    "cli-table": "^0.3.1",
+    "colors": "^1.4.0",
+    "fs": "^0.0.1-security",
+    "ora": "^5.1.0",
+    "request": "^2.88.2",
+    "yargs": "^16.1.1"
+  }
+}
