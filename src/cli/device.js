@@ -1,16 +1,20 @@
 module.exports = (yargs) => {
 	var o = {
         flash: async (argv) => new Promise(async resolve => {
-            await winFlash(argv._[1], __dirname+'/../drivers/nodemcu/bin/test.bin');
+            await winFlash(argv._[1], __dirname+'/../drivers/nodemcu/bin/full.bin');
             resolve()
 		}),
         upload: async (argv) => new Promise(async resolve => {
             await reset(argv._[1]);
-            await upload(argv._[1], __dirname+'/../../test/init.lua');
-            await upload(argv._[1], __dirname+'/../../test/wifi.lua');
-            await upload(argv._[1], __dirname+'/../../test/mqtt.lua');
+            await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/init.lua');
+            await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/config.lua');
+            await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/FUNC.json');
             await reset(argv._[1]);
             resolve()
+        }),
+        terminal: async (argv) => new Promise(async resolve => {
+        	terminal(argv._[1])
+        	resolve();
         })
 	}
 
@@ -19,6 +23,7 @@ module.exports = (yargs) => {
 	const winDevList = require(__dirname + '/modules/winDevList.js');
 	const winFlash = require(__dirname + '/modules/winFlash.js');
 	const upload = require(__dirname + '/modules/upload.js');
+	const terminal = require(__dirname + '/modules/terminal.js');
 	const reset = require(__dirname + '/modules/reset.js');
 
 	yargs = yargs
@@ -27,6 +32,9 @@ module.exports = (yargs) => {
 	})
 	.command('upload', "wiot upload <PortsName>".green + " Upload a NodeMCU board..", yargs => yargs, async argv => {
         await o.upload(argv);
+	})
+	.command('terminal', "wiot terminal <PortsName>".green + " Open a NodeMCU terminal..", yargs => yargs, async argv => {
+        await o.terminal(argv);
 	})
 	.command('init', "wiot init <PortsName>".green + " Init a NodeMCU board..", yargs => yargs, async argv => {
         await o.flash(argv);
