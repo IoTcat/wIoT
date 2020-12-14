@@ -1,0 +1,9 @@
+{
+	"info": "function() return CONFIG;end",
+	"restart": "function() node.restart();end",
+	"exec": "function(s) return loadstring(s)();end",
+	"list": "function() local obj = {};for k, v in pairs(w.f) do obj[k] = encoder.toHex(crypto.hash([[md5]],string.dump(v))); end;return obj;end",
+	"push": "function(s) local obj = sjson.decode(s);w.push(obj.hash, obj.func);return {status = true};end",
+	"pull": "function(s) w.pull(s);return {status = true};end",
+	"clear": "function() w.clear();return {status = true};end"
+}

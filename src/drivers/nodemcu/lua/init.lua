@@ -1,23 +1,59 @@
---CONFIG
-dofile('config.lua')
-
 --Global Var
+CONFIG = {}
 cs = nil --coAP Server
 cc = nil --coAP Client
+key = nil --Encrypt Key
+heartbeatFunc = {} --heartbeat Functions
+heartbeatCache = {} --heartbeat Cache
 
 --wIoT Toolbox
 w = {
 	f = {},
+	heartbeat = function()
+		local o = {
+			version = CONFIG.firmware.version,
+			id = CONFIG.w.id,
+			ip = wifi.sta.getip(),
+			port = CONFIG.coap.server.port,
+			payload = {}
+		}
+		--add list to o
+		local obj = {};
+		for k, v in pairs(w.f) do 
+			obj[k] = encoder.toHex(crypto.hash([[md5]],string.dump(v)));
+		end
+		o.func = obj;
+		--add payload
+		o.payload = heartbeatCache;
+		heartbeatCache = {};
+		--request
+		local res = cc:post(coap.CON, 'coap://'..CONFIG.w.director.ip..':'..CONFIG.w.director.port..'/', sjson.encode(o))
+		print(res)
+		if res == nil then return end
+		--response
+		local resObj = sjson.decode(res);
+		for sid, v in pairs(resObj) do
+			for cmd, msg in pairs(v) do
+				if func.tableKeyExist(heartbeatFunc, cmd) then
+					heartbeatCache[sid] = heartbeatFunc[cmd](msg)
+				end
+			end
+		end
+
+	end,
 	_push = function(hash, s)
 		w.f[hash] = function(r)
 			local status, msg = pcall(loadstring('return '..s)(), r)
-			return sjson.encode({
+			local data = sjson.encode({
 				status = status,
 				msg = msg
 			})
+			local res = func.encrypt(data, key)
+			key = nil
+			return res
 		end
 		_G["_"..hash] = w.f[hash]
-		cs:func('_'..hash, coap.JSON)
+		cs:func('_'..hash)
 
 		return hash
 	end,
@@ -69,7 +105,7 @@ w = {
 		w.stop()
 		w.start()
 		for k, v in pairs(w.f) do
-			cs:func('_'..k, coap.JSON)
+			cs:func('_'..k)
 		end
 	end
 }
@@ -102,11 +138,21 @@ func = {
 			after(after2)
 		end,
 		w = function(after)
+			for k, v in pairs(func.jsonfRead('heartbeatFunc.json')) do
+				heartbeatFunc[k] = function(r)
+					local status, msg = pcall(loadstring('return '..v)(), r)
+					local data = sjson.encode({
+						status = status,
+						msg = msg
+					})
+					return data
+				end
+			end
 			w.start()
-			--cc:post(coap.CON, 'coap://'..CONFIG.w.director.ip..CONFIG.w.director.port..'/reg', '{"version": "'..CONFIG.firmware.version..'", "id": "'..CONFIG.w.id..'", "ip": "'..wifi.sta.getip()..'", "port": '..CONFIG.coap.server.port..'}')
+			w.heartbeat()
 			local heartbeat = tmr.create()
 			heartbeat:register(CONFIG.w.heartbeat.interval, tmr.ALARM_AUTO, function()
-				--cc:post(coap.CON, 'coap://'..CONFIG.w.director.ip..CONFIG.w.director.port..'/heartbeat', '{"id": "'..CONFIG.w.id..'", , "ip": "'..wifi.sta.getip()..'"}')
+				w.heartbeat()
 			end);
 			heartbeat:start()
 			if after then after() end
@@ -152,6 +198,26 @@ func = {
 	end,
 	jsonfClear = function(f)
 		func.jsonfWrite(f, {})
+	end,
+	encrypt = function(s, kay)
+		if key == nil then return s;end
+		local msg = encoder.toHex(crypto.encrypt("AES-ECB", key, s..func.randomLetter(4)))
+		return msg..string.sub(encoder.toHex(crypto.hmac("sha1", msg, key)), 1, 8)
+	end,
+	decrypt = function(s, kay)
+		if key == nil then return s;end
+		local msg, hmac = string.sub(s, 1, string.len(s)-8), string.sub(s, string.len(s)-7, 8)
+		if string.sub(encoder.toHex(crypto.hmac("sha1", msg, key)), 1, 8) ~= hmac then return nil; end
+		local raw = crypto.decrypt("AES-ECB", key, encoder.fromHex(msg))
+		return string.sub(raw, 1, string.len(raw) - 4)
+	end,
+	tableKeyExist = function(obj, key)
+    	for k, v in pairs(obj) do
+        	if k == key then
+            	return true
+            end
+        end
+        return false
 	end
 }
 
@@ -161,7 +227,8 @@ func.run = function()
 	gpio.write(0, gpio.LOW)
 end
 
-
+--Load CONFIG
+CONFIG = func.jsonfRead('config.json')
 
 --exec Init
 func.init.run()

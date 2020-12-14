@@ -1,0 +1,28 @@
+{
+	"firmware": {
+		"version": "0.0.1"
+	},
+	"wifi": {
+		"station": {
+			"ssid": "yimian-iot",
+			"pwd": "1234567890.",
+			"save": true
+		}
+	},
+	"coap": {
+		"server": {
+			"port": 5683
+		}
+	},
+	"w": {
+		"id": "test1",
+		"director": {
+			"ip": "192.168.3.100",
+			"port": 5683
+		},
+		"heartbeat": {
+			"interval": 15000
+		},
+		"key": "1234567890abcdef"
+	}
+}

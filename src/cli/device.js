@@ -7,8 +7,9 @@ module.exports = (yargs) => {
         upload: async (argv) => new Promise(async resolve => {
             await reset(argv._[1]);
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/init.lua');
-            await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/config.lua');
+            await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/config.json');
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/FUNC.json');
+            await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/heartbeatFunc.json');
             await reset(argv._[1]);
             resolve()
         }),
@@ -36,7 +37,7 @@ module.exports = (yargs) => {
 	.command('terminal', "wiot terminal <PortsName>".green + " Open a NodeMCU terminal..", yargs => yargs, async argv => {
         await o.terminal(argv);
 	})
-	.command('init', "wiot init <PortsName>".green + " Init a NodeMCU board..", yargs => yargs, async argv => {
+	.command('ini', "wiot ini <PortsName>".green + " Init a NodeMCU board..", yargs => yargs, async argv => {
         await o.flash(argv);
         await o.upload(argv);
 	})

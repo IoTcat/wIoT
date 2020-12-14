@@ -15,8 +15,11 @@
   "dependencies": {
     "boxen": "^4.2.0",
     "cli-table": "^0.3.1",
+    "coap": "^0.24.0",
     "colors": "^1.4.0",
     "fs": "^0.0.1-security",
+    "log4js": "^6.3.0",
+    "md5": "^2.3.0",
     "ora": "^5.1.0",
     "request": "^2.88.2",
     "yargs": "^16.1.1"
