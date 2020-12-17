@@ -7,8 +7,8 @@ module.exports = (params) => {
 
 
 
-	let cache = {};
 	let waitList = {};
+	let reg = {};
 
 	let f = {
 		generateId: () => {
@@ -18,46 +18,64 @@ module.exports = (params) => {
 
 
   	let o = {
-		push: (id, cmd, body) => new Promise((resolve, reject) => {
-			if(!cache.hasOwnProperty(id)){
-				cache[id] = {};
+		push: (id, cmd, body, cb) => new Promise((resolve, reject) => {
+			if(!waitList.hasOwnProperty(id)){
+				waitList[id] = {};
 			}
 			let sid = f.generateId();
-			cache[id][sid] = {};
-			cache[id][sid][cmd] = body;
-			waitList[sid] = false;
+			waitList[id][sid] = {};
+			waitList[id][sid].body = JSON.stringify({
+				fid: cmd,
+				sid: sid,
+				body: body
+			});
+			waitList[id][sid].res = false;
 
-			setTimeout(()=>{
-				if(waitList.hasOwnProperty(sid) && waitList[sid] !== false){
-					let body = waitList[sid];
-					delete waitList[sid];
+			let lstn = ()=>{
+				if(waitList.hasOwnProperty(id) && waitList[id].hasOwnProperty(sid) && waitList[id][sid].res !== false && waitList[id][sid].res !== null){
+					let body = waitList[id][sid].res;
+					delete waitList[id][sid];
+					if(typeof cb == "function"){
+						cb(body)
+					}
 					resolve(body)
+				}else{
+					setTimeout(lstn, 50);
 				}
-			}, 50);
+			}
+			lstn();
 		})
 	}
 
 
 	serve.add('/', (info, data) => {
 
-		console.log(cache, waitList)
-		if(data.hasOwnProperty('payload') && data.payload && Object.keys(data.payload).length){
-			for(let i in data.payload){
-				if(waitList.hasOwnProperty(i)){
-					waitList[i] = data.payload[i];
-				}
-			}
+		if(!data.hasOwnProperty('id')){
+			return;
 		}
 
-		if(cache.hasOwnProperty(data.id) && Object.keys(cache[data.id]).length){
-			console.log('ssssddd')
-			let s = JSON.stringify(cache[data.id]);
-			delete cache[data.id]
-			log.info(data.id, 'Type: heartbeat | res: '+JSON.stringify(info) + ' | payload: '+s);
-			return s;
+		// First heartbeat
+		if(!waitList.hasOwnProperty(data.id)){
+			waitList[data.id] = {};
 		}
-		log.info(data.id, 'Type: heartbeat | res: '+JSON.stringify(info));
-		return '';
+
+		// cmd response
+		if(data.hasOwnProperty('sid') && data.sid){
+			if(waitList.hasOwnProperty(data.id) && waitList[data.id].hasOwnProperty(data.sid)){
+				waitList[data.id][data.sid].res = data.body;
+			}
+		}
+		//heartbeat-cmd
+		for(let i in waitList[data.id]){
+			if(waitList[data.id][i].res === false){
+				log.info(data.id, 'Type: heartbeat-cmd | res: '+JSON.stringify(data) + ' | payload: '+waitList[data.id][i].body);
+				waitList[data.id][i].res = null;
+				return waitList[data.id][i].body;
+			}
+		};
+		//heartbeat without cmd
+		log.info(data.id, 'Type: heartbeat | res: '+JSON.stringify(data));
+		return ;
 	});
 
 	return o ;

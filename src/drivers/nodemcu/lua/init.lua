@@ -1,60 +1,102 @@
 --Global Var
 CONFIG = {}
-cs = nil --coAP Server
-cc = nil --coAP Client
+udp = nil --UDP Server
 key = nil --Encrypt Key
-heartbeatFunc = {} --heartbeat Functions
-heartbeatCache = {} --heartbeat Cache
+G = {} --Var Zone
 
 --wIoT Toolbox
 w = {
 	f = {},
+	waitList = {},
+	send = function(ip, port, fid, body, cb)
+		local sid = func.randomLetter(8)
+		local o = {
+			fid = fid,
+			sid = sid,
+			id = CONFIG.w.id,
+			body = body
+		}
+		local status, msg = pcall(sjson.encode, o)
+		udp:send(port, ip, msg)
+		if cb == nil then return ;end
+		w.waitList[sid] = false
+		local resTimer = tmr.create()
+		local retryTimer = tmr.create()
+		local retryTimes = CONFIG.w.maxRetryTimes
+		resTimer:register(CONFIG.w.scanInterval, tmr.ALARM_AUTO, function()
+		    if func.tableKeyExist(w.waitList, sid) and w.waitList[sid] ~= false then
+		        cb(w.waitList[sid])
+		        w.waitList[sid] = nil
+		    	resTimer:unregister()
+		    	retryTimer:unregister()
+		    	collectgarbage("collect")
+		    end
+		end)
+		retryTimer:register(CONFIG.w.retryInterval, tmr.ALARM_AUTO, function()
+		    if retryTimes > 0 and func.tableKeyExist(w.waitList, sid) and w.waitList[sid] == false then
+		    	udp:send(port, ip, msg)
+		    	retryTimes = retryTimes - 1
+		    else
+		    	retryTimer:unregister()
+		    	collectgarbage("collect")
+		    end
+		end)
+		resTimer:start()
+		retryTimer:start()
+	end,
+	receive = function(s, data, port, ip) 
+		print(data)
+		local status, msg = pcall(sjson.decode, data)
+		if not status then return end
+		if not func.tableKeyExist(msg, 'sid') or not func.tableKeyExist(msg, 'body') then return end
+		--respond mode
+		print(msg.fid)
+		if not func.tableKeyExist(msg, 'fid') then
+			if func.tableKeyExist(w.waitList, msg.sid) then
+				w.waitList[msg.sid] = msg.body
+			end
+			return
+		end
+		print(msg.fid)
+		--request mode
+		if not func.tableKeyExist(w.f, msg.fid) then return end
+		local res = w.f[msg.fid](msg.body, {port = port, ip = ip, socket = s, sid = msg.sid, fid = msg.fid});
+		print(msg.fid)
+		local resObj = {
+			sid = msg.sid,
+			id = CONFIG.w.id,
+			body = res
+		}
+		status, res = pcall(sjson.encode, resObj)
+		print(res)
+		s:send(port, ip, res)
+	end,
 	heartbeat = function()
 		local o = {
 			version = CONFIG.firmware.version,
 			id = CONFIG.w.id,
 			ip = wifi.sta.getip(),
-			port = CONFIG.coap.server.port,
-			payload = {}
+			port = CONFIG.udp.server.port,
 		}
-		--add list to o
-		local obj = {};
-		for k, v in pairs(w.f) do 
-			obj[k] = encoder.toHex(crypto.hash([[md5]],string.dump(v)));
-		end
-		o.func = obj;
-		--add payload
-		o.payload = heartbeatCache;
-		heartbeatCache = {};
 		--request
-		local res = cc:post(coap.CON, 'coap://'..CONFIG.w.director.ip..':'..CONFIG.w.director.port..'/', sjson.encode(o))
-		print(res)
-		if res == nil then return end
-		--response
-		local resObj = sjson.decode(res);
-		for sid, v in pairs(resObj) do
-			for cmd, msg in pairs(v) do
-				if func.tableKeyExist(heartbeatFunc, cmd) then
-					heartbeatCache[sid] = heartbeatFunc[cmd](msg)
-				end
-			end
-		end
-
+		print(sjson.encode(o))
+		udp:send(CONFIG.w.director.port, CONFIG.w.director.ip, sjson.encode(o))
 	end,
 	_push = function(hash, s)
 		w.f[hash] = function(r)
+			if hash == 'construct' or hash == 'destruct' then
+				print(s)
+				loadstring('print("hhhhhhh")')()
+				loadstring(s)()
+				return
+			end
 			local status, msg = pcall(loadstring('return '..s)(), r)
-			local data = sjson.encode({
+			local data = {
 				status = status,
-				msg = msg
-			})
-			local res = func.encrypt(data, key)
-			key = nil
-			return res
+				data = msg
+			}
+			return data
 		end
-		_G["_"..hash] = w.f[hash]
-		cs:func('_'..hash)
-
 		return hash
 	end,
 	push = function(hash, s)
@@ -64,22 +106,15 @@ w = {
 	end,
 	pull = function(hash)
 		w.f[hash] = nil
-		_G["_"..hash] = nil
 		func.jsonfPull('func.json', hash)
 		w.refresh()
 	end,
 	clear = function()
-		for k, v in pairs(w.f) do
-			loadstring('_'..k..'=nil')
-		end
-		w.f = {}
 		func.jsonfClear('func.json')
 		w.refresh()
 	end,
 	start = function()
 		print('w starting...')
-		cs = coap.Server()
-		cs:listen(CONFIG.coap.server.port)
 		local usr = func.jsonfRead('func.json')
 		if next(usr) ~= nil then
 			print('in usr')
@@ -91,22 +126,24 @@ w = {
 			print('in systemd')
 			local systemd = func.jsonfRead('FUNC.json')
 			for k, v in pairs(systemd) do
+				print(k)
 				w.push(k, v)
 			end
 		end
+		if func.tableKeyExist(w.f, 'construct') then
+			w.f:construct()
+		end
 	end,
 	stop = function()
-		cs:close()
-		cs = nil
+		if func.tableKeyExist(w.f, 'destruct') then
+			w.f:destruct()
+		end
 		w.f = {}
 		collectgarbage("collect")
 	end,
 	refresh = function()
-		w.stop()
-		w.start()
-		for k, v in pairs(w.f) do
-			cs:func('_'..k)
-		end
+		pcall(w.stop)
+		pcall(w.start)
 	end
 }
 
@@ -114,7 +151,15 @@ w = {
 func = {
 	init = {
 		run = function()
-			func.init.wifi(func.init.coap, func.init.w, func.run)
+			if file.exists("__running") then
+				file.rename("__running", "__stopped")
+			else
+				func.jsonfClear('func.json')
+			end
+			collectgarbage("collect")
+			w.start()
+			collectgarbage("collect")
+			func.init.wifi(func.init.udp, func.init.w, func.run)
 		end,
 		wifi = function(after, after2, after3)
 			print('Setting up WIFI...')
@@ -133,26 +178,18 @@ func = {
 			end)
 			wifiInit:start()
 		end,
-		coap = function (after, after2)
-			cc = coap.Client()
+		udp = function (after, after2)
+			udp = net.createUDPSocket()
+			udp:listen(CONFIG.udp.server.port)
+			udp:on("receive", w.receive)
 			after(after2)
 		end,
 		w = function(after)
-			for k, v in pairs(func.jsonfRead('heartbeatFunc.json')) do
-				heartbeatFunc[k] = function(r)
-					local status, msg = pcall(loadstring('return '..v)(), r)
-					local data = sjson.encode({
-						status = status,
-						msg = msg
-					})
-					return data
-				end
-			end
-			w.start()
 			w.heartbeat()
 			local heartbeat = tmr.create()
 			heartbeat:register(CONFIG.w.heartbeat.interval, tmr.ALARM_AUTO, function()
 				w.heartbeat()
+				file.rename("__stopped", "__running")
 			end);
 			heartbeat:start()
 			if after then after() end

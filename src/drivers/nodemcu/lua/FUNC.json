@@ -1,3 +1,11 @@
 {
-	"info": "function() key = CONFIG.w.key return CONFIG;end"
+	"info": "function() return CONFIG;end",
+	"restart": "function() node.restart();end",
+	"exec": "function(s) return loadstring(s)();end",
+	"list": "function() local obj = {};for k, v in pairs(w.f) do obj[k] = encoder.toHex(crypto.hash([[md5]],string.dump(v))); end;return obj;end",
+	"push": "function(s) print(s.hash) w.push(s.hash, s.func);return {status = true};end",
+	"pull": "function(s) w.pull(s);return {status = true};end",
+	"clear": "function() w.clear();return {status = true};end",
+	"refresh": "function() w.refresh();return {status = true};end",
+	"test": "function(s) return s end"
 }

@@ -9,7 +9,7 @@ module.exports = (yargs) => {
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/init.lua');
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/config.json');
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/FUNC.json');
-            await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/heartbeatFunc.json');
+            await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/__stopped');
             await reset(argv._[1]);
             resolve()
         }),
