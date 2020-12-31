@@ -1,6 +1,39 @@
 ## 研发日志
 
 
+### 2020-12-16
+ - 想法：LFS让系统Lua运行在Flash上
+ - director映射HTTP接口供CLI调用
+ - 呼吸灯CLI设计
+ - 使用LFS扩展内存
+
+
+### 2020-12-15
+ - 心跳机制切换到UDP
+ - 搭建udp(较)可靠通信机制
+ - 重新定义NodeMCU上的用户服务格式（construct - main - destruct）
+ - 12小时-NodeMCU固件可靠性测试
+
+### 2020-12-14
+ - director的CoAP界面搭建
+ - director的Reg表搭建
+ - director的Cache机制搭建
+ - director的Log机制搭建
+ - 心跳机制使用CoAP对接（失败）
+ 
+### 2020-12-10
+ - NodeMCU初始化灯光提示
+ - NodeMCU下载指令AES加密+HMAC签名+加盐
+
+
+### 2020-12-9
+ - NodeMCU虚拟环境错误handler
+ - NodeMCU虚拟环境持久化
+ - 配置文件分离为json
+
+### 2020-12-8
+ - 搭建CoAP测试环境
+ - NodeMCU虚拟环境搭建
 
 ### 2020-10-23
  - 编写SPEC报告intro
