@@ -69,7 +69,7 @@ module.exports = (yargs) => {
 
 
     yargs = yargs
-    .command('init', "wiot init <ProjectName> [path]".green + " Create and initiate a new wIoT Project folder", yargs => yargs, async argv => {
+    .command('ini', "wiot ini <ProjectName> [path]".green + " Create and initiate a new wIoT Project folder", yargs => yargs, async argv => {
         await o.init(argv);
     })
 

@@ -19,7 +19,7 @@ module.exports = async (port, bin) => {
 			process.stdout.on('data', (data) => {
 	
 				if(data.toString().substring(0, 3) == '. ['){
-					ban.info('Flashing...' + data.toString().substring(1));
+					ban.info('Flashing...' + data.toString().substring(1, 9));
 				}
 				if(data.toString().indexOf('[ 100% ]') != -1){
 					ban.succeed('Flash finished!!');

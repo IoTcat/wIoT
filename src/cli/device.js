@@ -5,12 +5,20 @@ module.exports = (yargs) => {
             resolve()
 		}),
         upload: async (argv) => new Promise(async resolve => {
+            ban = new ora(`Preparing NodeMCU...0%`).start();
             await reset(argv._[1]);
+            ban.info('Preparing NodeMCU...10%');
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/init.lua');
+            ban.info('Preparing NodeMCU...30%');
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/config.json');
+            ban.info('Preparing NodeMCU...50%');
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/FUNC.json');
+            ban.info('Preparing NodeMCU...70%');
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/__stopped');
+            ban.info('Preparing NodeMCU...90%');
             await reset(argv._[1]);
+            ban.info('Preparing NodeMCU...100%');
+            ban.succeed('NodeMCU on '+argv._[1]+' is ready!! You can pull it out now~');
             resolve()
         }),
         terminal: async (argv) => new Promise(async resolve => {
@@ -37,7 +45,14 @@ module.exports = (yargs) => {
 	.command('terminal', "wiot terminal <PortsName>".green + " Open a NodeMCU terminal..", yargs => yargs, async argv => {
         await o.terminal(argv);
 	})
-	.command('ini', "wiot ini <PortsName>".green + " Init a NodeMCU board..", yargs => yargs, async argv => {
+	.command('init', "wiot init <PortsName>".green + " Init a NodeMCU board..", yargs => yargs, async argv => {
+        ban = new ora(`Checking port ${argv._[1]}...`).start();
+        let deviceList = await winDevList();
+        if(deviceList.indexOf(argv._[1]) == -1){
+             ban.fail('No devices on '+argv._[1]+'!!');
+            return;
+        }
+        ban.succeed('Found '+argv._[1]+'!!');
         await o.flash(argv);
         await o.upload(argv);
 	})
