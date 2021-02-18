@@ -1,31 +1,15 @@
 {
-	"firmware": {
-		"version": "0.0.1"
-	},
+	"nid": "good",
 	"wifi": {
-		"station": {
-			"ssid": "yimian-iot",
-			"pwd": "1234567890.",
-			"save": true
-		}
+		"ssid": "yimian-iot",
+		"pwd": "1234567890."
 	},
-	"udp": {
-		"server": {
-			"port": 5678
-		}
+	"msg": {
+		"port": 6789
 	},
-	"w": {
-		"id": "test2",
-		"director": {
-			"ip": "192.168.3.100",
-			"port": 5678
-		},
-		"heartbeat": {
-			"interval": 2000
-		},
-		"key": "1234567890abcdef",
-		"scanInterval": 300,
-		"retryInterval": 10000,
-		"maxRetryTimes": 5
+	"director": {
+		"HeartbeatInterval": 10000,
+		"ip": "192.168.3.100",
+		"port": 4444
 	}
 }

@@ -1,704 +1,357 @@
-(function(__run)
 
-	--Packages Used: file, sjson, http, httpserver, mqtt, encoder, timer, node, wifi, gpio
-	--package loaded
+print('total', node.heap());
+main = coroutine.create(function(__run)
+	--Packages Used: file, sjson, encoder, timer, node, wifi, net, gpio, uart
+collectgarbage("collect")
+print('close', node.heap())
+
+
+	--Global Constant
+	-----------------
+	local CONFIG_PATH = 'config.json';
+	local FLAG_PATH = '__system/flag';
+	local FUNC_PATH = 'func.json';
+	local DB_PREFIX = '__data/';
+	local SWAP_PREFIX = '__system/swap/';
+
+collectgarbage("collect")
+print('Global Constant', node.heap())
+
+
+
+	--Global Methods (in RAM)
 	----------------
-	local httpserver = dofile('httpserver.lua');
-	--Global Method Extension
-	-------------------------
-	string.split = function( str,reps )
+	-- Package Methods
+	local pack = {
+		encode = function(obj)
+			local status, json = pcall(sjson.encode, {obj});
+			if status then
+				return string.sub(json, 2, -2);
+			else
+				return '';
+			end
+		end,
+		decode = function(str)
+			if type(str) ~= 'string' then
+				return nil
+			end;
+			local status, obj = pcall(sjson.decode, '['..str..']');
+			if status then
+				return obj[1];
+			else
+				return nil;
+			end
+		end
+	}
+	-- File Object Operation
+	fs = {
+		read = function(f)--f:filename
+				return pack.decode(file.getcontents(f));
+		end,
+		write = function(f, obj)
+			local res = pack.encode(obj);
+			if res == '' then
+				return false;
+			else
+				while(file.getcontents(f) ~= res) do
+					file.putcontents(f, res);
+				end
+				return true;
+			end
+		end
+	}
+	--split string
+	local stringSplit = function(str, reps)
 	    local resultStrList = {}
-	    string.gsub(str,'[^'..reps..']+',function ( w )
-	        table.insert(resultStrList,w)
-	    end)
-	    return resultStrList
+	    string.gsub(str,'[^'..reps..']+', function (w)
+	        table.insert(resultStrList,w);
+	    end);
+	    return resultStrList;
 	end
-	--Method Declaration
-	--------------------
-	local _ = {
-		_ = {
-			restart = nil,
-			reset = nil
-		},
-		init = {
-			http = nil,
-			mqtt = nil,
-			onlineFunc = nil
-		},
-		config = {
-			v = nil,
-			path = '__system/_config.json',
-			default = {
-				nid = 'default',
-				offlineOnly = true,
-				signalPin = 0,
-				flag = {
-					MaxRetryTimes = 2,
-					MaxResetTimes = 3
-				},
-				func = {
-					offline = {
-						MaxWaitTime = 60
-					},
-					online = {
-						MaxWaitTime = 60
-					}
-				},
-				fs = {
-					prefix = {
-						root = '',
-						system = '__system/',
-						data = '__data/'
-					},
-					filename = {
-						nsmap = 'ns.map',
-						flag = 'flag',
-						func = 'func.json',
-						error = 'error.json'
-					}
-				},
-				wifi = {
-					CheckInterval = 1000,
-					config = {
-						ssid = '',
-						pwd = '',
-						save = false
-					}
-				},
-				http = {
-					port = 6789,
-					api = {
-						discover = '/discover'
-					}
-				},
-				mqtt = {
-					host = 'mqtt.yimian.xyz',
-					port = 1883,
-					user = nil,
-					password = nil,
-					tls = false,
-					keepaliveTimer = 30,
-					topicPrefix = '/wiot/default/',
-					ConnectRetryInterval = 2000,
-					OfflineRetryInterval = 3000,
-					PostCheckInterval = 100,
-					PostTimeout = 10
-				}
-			}
-		},
-		flag = {
-			v = nil,
-			set = nil,
-			load = nil
-		},
-		func = {
-			id = nil,
-			offline = nil,
-			online = nil
-		},
-		table = {
-			merge = nil
-		},
-		timer = {
-			setTimeout = nil,
-			setInterval = nil
-		},
-		signal = {
-			init = nil,
-			set = nil,
-			destroy = nil,
-			v = nil
-		},
-		http = {
-			v = nil
-		},
-		mqtt = {
-			getTopic = nil,
-			v = nil
-		},
-		f = {
-			read = nil,
-			write = nil
-		},
-		ns = {
-			set = nil,
-			get = nil,
-			render = nil,
-			exist = nil,
-			check = nil,
-			verify = nil
-		},
-		package = {
-			pack = nil,
-			depack = nil,
-			set = nil,
-			get = nil
-		},
-		db = {
-			public = {
-				keys = nil,
-				get = nil,
-				set = nil,
-				del = nil,
-				clear = nil
-			},
-			toIndex = nil,
-			fromIndex = nil,
-			getFileName = nil
-		},
-		msg = {
-			reg = {
-				send = {},
-				post = {} 
-			},
-			postWaitList = {},
-			public = {
-				post = nil,
-				send = nil,
-				onPost = nil,
-				onSend = nil
-			},
-			mpost = nil,
-			msend = nil,
-			dpost = nil,
-			dsend = nil
-		},
-		api = {
-			http = {
-				discover = nil,
-				msg = nil
-			},
-			mqtt = {
-				msg = nil,
-				heartbeat = nil,
-				ns = nil,
-				func = nil,
-				restart = nil
-			}
-		}
-	};
 
-	--Method Defination
+collectgarbage("collect")
+print('Global Methods (in RAM)', node.heap())
+
+
+
+	--Load Config (Assume config file is
+	--             exist and good)
+	-------------
+	local config = fs.read(CONFIG_PATH);
+collectgarbage("collect")
+print('Load Config', node.heap())
+
+	--Check Flag (Assume flag is at FLAG_PATH in SPIFF)
+	--(flag represent the number of startup failures before)
+	------------
+	--Load Flag
+	local flag = file.getcontents(FLAG_PATH);
+	if flag == nil then
+		flag = 0;
+	else
+		flag = tonumber(flag) + 1;
+	end
+	--Update Flag Record in SPIFF
+	file.putcontents(FLAG_PATH, tostring(flag));
+	--Failures > 3 Times
+	if flag > 3 then 
+		--remove func file to run in DEFAULT mode
+		file.remove(FUNC_PATH);
+	end
+	--Release Resource
+	flag = nil;
+collectgarbage("collect")
+print('Check Flag', node.heap())
+
+	--WiFi Setup
+	------------
+	--Set Mode to STA
+	wifi.setmode(wifi.STATION);
+	--Set HostName to WIOT-<nid>
+	wifi.sta.sethostname('WIOT-'..config.nid);
+	--Configure the WiFi
+	wifi.sta.config(config.wifi);
+	--Connect to AP
+	tmr.create():alarm(1000, tmr.ALARM_AUTO, function(timer)
+		print('Setting WiFi');
+		if wifi.sta.getip() ~= nil then --When WiFi is Ready
+			print('WiFi OK');
+			--Release Timer Resources
+			timer:unregister();
+			--Resume Main Process
+			coroutine.resume(main);
+		end
+	end);
+	--Suspend Main Process Until WiFi is ready
+	coroutine.yield();
+collectgarbage("collect")
+print('WiFi Setup', node.heap())
+
+
+
+	--SWAP Setup
+	--------------
+	-- SWAP Method
+	swap = {
+		set = function(key, val, prefix)
+			return fs.write(prefix..encoder.toBase64(key), val);
+		end,
+		get = function(key, prefix)
+			return fs.read(prefix..encoder.toBase64(key));
+		end,
+		del = function(key, prefix)
+			file.remove(prefix..encoder.toBase64(key));
+		end,
+		list = function(prefix)
+			local fileList = file.list(prefix..'.');
+			local keys = {};
+			for k, v in pairs(fileList) do
+				table.insert(keys, encoder.fromBase64(string.sub(k, #prefix + 1)));
+			end
+			return keys;
+		end,
+		clear = function(prefix)
+			for index, key in pairs(swap.list(prefix)) do
+				swap.del(key, prefix);
+			end
+		end
+	}
+
+collectgarbage("collect")
+print('SWAP Setup', node.heap())
+
+
+
+	--DB Setup
+	--------------
+	--DB Methods
+	db = {
+		set = function(key, val)
+			return swap.set(key, val, DB_PREFIX);
+		end,
+		get = function(key)
+			return swap.get(key, DB_PREFIX);
+		end,
+		del = function(key, prefix)
+			swap.del(key, DB_PREFIX);
+		end,
+		list = function(prefix)
+			return swap.list(DB_PREFIX);
+		end,
+		clear = function()
+			swap.clear(DB_PREFIX);
+		end
+	}
+collectgarbage("collect")
+print('DB Setup', node.heap())
+
+
+	--Name Service (NS) Setup
+	--------------------
+	ns = setmetatable({}, {
+		__index = function(table, key)
+			local res = swap.get(key, SWAP_PREFIX..'NS/');
+			if res == nil or res.port == nil or res.ip == nil then
+				return nil;
+			else
+				return res;
+			end
+		end,
+		__newindex = function(table, key, val)
+				swap.set(key, val, SWAP_PREFIX..'NS/');
+		end
+	});
+collectgarbage("collect")
+print('NS Setup', node.heap())
+
+
+	--MSG Register Init
 	-------------------
-	--_
-	_._.restart = function(err)
-		if err then
-			file.putcontents(_.config.v.fs.prefix.system.._.config.v.fs.filename.error, tostring(err));
-		end
-		node.restart();
-	end
-	_._.reset = function()
-		file.remove(_.config.v.fs.prefix.system.._.config.v.fs.filename.error);
-		file.remove(_.config.v.fs.prefix.system.._.config.v.fs.filename.func);
-		file.remove(_.config.v.fs.prefix.system.._.config.v.fs.filename.flag);
-		node.restart();
-	end
-
-	--flag
-	_.flag.load = function()
-		_.flag.v = tonumber(file.getcontents(_.config.v.fs.prefix.system.._.config.v.fs.filename.flag));
-	end
-	_.flag.set = function(val)
-		_.config.flag.v = val;
-		file.putcontents(_.config.v.fs.prefix.system.._.config.v.fs.filename.flag, tostring(val));
-	end
-	_.flag.ward = function(f)
-		f();
-		_.flag.set(-1);
-	end
-	--table
-	_.table.merge = function(a, b)
-	    if type(a) == 'table' and type(b) == 'table' then
-	        for k,v in pairs(b) do
-	        	if type(v) == 'table' and type(a[k] or false) == 'table' then
-	        		_.table.merge(a[k],v);
-	        	else
-	        		a[k]=v;
-	        	end
-	        end
-	    end
-	    return a;
-	end
-	--timer
-	_.timer.setTimeout = function(f, time_ms)
-		return tmr.create():alarm(time_ms, tmr.ALARM_SINGLE, f);
-	end
-	_.timer.setInterval = function(f, time_ms)
-		return tmr.create():alarm(time_ms, tmr.ALARM_AUTO, function(timer)
-			f(function(delay_time_ms)
-				if delay_time_ms < 0 then
-					timer:unregister();
-				else
-					timer:stop();
-					_.timer.setTimeout(function()
-						timer:start();
-					end, delay_time_ms);
-				end
-			end)
-		end);
-	end
-
-	--signal
-	_.signal.init = function()
-		gpio.mode(_.config.v.signalPin, gpio.OUTPUT);
-		_.signal.v = tmr.create();
-	end
-	_.signal.set = function(interval_ms)
-		_.signal.v:alarm(interval_ms, tmr.ALARM_AUTO, function()
-			if gpio.read(_.config.v.signalPin) == gpio.HIGH then
-				gpio.write(_.config.v.signalPin, gpio.LOW);
+	--MSG Register Clear
+	swap.clear(SWAP_PREFIX..'M/');
+	--MSG register (in SWAP)
+	local msgReg = setmetatable({}, {
+		__index = function(table, key)
+			local res = swap.get(key, SWAP_PREFIX..'M/');
+			if res == nil then
+				return nil;
 			else
-				gpio.write(_.config.v.signalPin, gpio.HIGH);
+				return loadstring(encoder.fromBase64(res));
 			end
-		end);
-	end
-	_.signal.destroy = function()
-		gpio.write(_.config.v.signalPin, gpio.HIGH);
-		_.signal.v:unregister();
-		_.signal.v = nil;
-	end
-
-	--mqtt
-	_.mqtt.getTopic = function(s)
-		return _.config.v.mqtt.topicPrefix.._.config.v.nid..'/'..s;
-	end
-	_.mqtt.start = function()
-		_.mqtt.v:connect(
-			_.config.v.mqtt.host, 
-			_.config.v.mqtt.port, 
-			_.config.v.mqtt.tls.
-			function(client)
-				client:subscribe(_.mqtt.getTopic('msg/#'));
-				client:subscribe(_.mqtt.getTopic('ctl/#'));
-				client:publish(_.mqtt.getTopic('status'), 'online', 0, 0);
-			end,
-			function(client, reason)
-				_.timer.setTimeout(_.mqtt.start, _.config.v.mqtt.ConnectRetryInterval);
-			end
-		);
-	end
-
-	--f
-	_.f.read = function(f--[[filename]])
-		local status, obj = pcall(sjson.decode, file.getcontents(f));
-		if status then
-			return obj;
-		else
-			return {};
-		end
-	end
-	_.f.write = function(f, obj)
-		local status, json = pcall(sjson.encode, obj);
-		if status then
-			return file.putcontents(f, json);
-		else
-			return false;
-		end
-	end
-
-	--ns
-	_.ns.set = function(obj)
-		return _.f.write(_.config.v.fs.prefix.system.._.config.v.fs.filename.nsmap, obj);
-	end
-	_.ns.get = function()
-		return _.f.read(_.config.v.fs.prefix.system.._.config.v.fs.filename.nsmap);
-	end
-	_.ns.render = function(nid)
-		for local k, v in pairs(_.ns.get()) do
-			if k == nid and v then
-				return v;
-			end
-		end
-		return nid;
-	end
-	_.ns.exist = function(nid)
-		if _.ns.render(nid) == nid then
-			return false;
-		else
-			return true;
-		end
-	end
-	_.ns.check = function(nid, ip, cb--[[func(bool status)]])
-		http.post('http://'..ip.._.config.v.http.api.discover, nil, '', function(code, data)
-			if code ~= 200 or data ~= nid then
-				cb(false);
+		end,
+		__newindex = function(table, key, val)
+			if type(val) ~= 'function' then
+				swap.del(key, SWAP_PREFIX..'M/');
 			else
-				cb(true);
+				swap.set(key, encoder.toBase64(string.dump(val)), SWAP_PREFIX..'M/');
 			end
-		end);
-	end
-	_.ns.verify = function()
-		local ns = _.ns.get();
-		for k, v in pairs(ns) do
-			_.ns.check(k, v, function(status)
-				if not status then
-					ns[k] = false;
-					_.ns.set(ns);
-				end
-			end)
 		end
-	end
-
-	--package
-	_.package.pack = function(o)
-		local status, json = pcall(sjson.encode, o);
-		if status then
-			return json;
-		else
+	});
+	--MSG Reg Method
+	local msgReg_run = function(data)
+		--decode data
+		local data = pack.decode(data);
+		--check data
+		if type(data) ~= 'table' or type(data.from) ~= 'string' or type(data.name) ~= 'string' or data.to ~= config.nid then
 			return nil;
+		end;
+		--Search mached methods in MSG register
+		local method = msgReg[data.name];
+		if type(method) == 'function' then
+			method(data.from, data.body);
 		end
 	end
-	_.package.depack = function(s)
-		local status, obj = pcall(json.decode, s);
-		if status then
-			return obj;
+
+collectgarbage("collect")
+print('MSG Register Init', node.heap())
+
+
+	--UDP Startup
+	-------------
+	--Start UDP Service
+	local udpd = net.createUDPSocket();
+	udpd:listen(config.msg.port);
+	udpd:on('receive', function(socket, data, port, ip)
+		msgReg_run(data);
+	end);
+collectgarbage("collect")
+print('UDP Startup', node.heap())
+
+	--TCP Startup
+	-------------
+	--Start TCP Service
+	local tcpd = net.createConnection(net.TCP, 0);
+	local socket = nil;
+	local tcpd_cache = '';
+	tcpd:on('connection', function(sck, data) 
+		socket = sck;print('c')
+	end);
+	tcpd:on('disconnection', function(sck, data) 
+		socket = nil;print('dc')
+	end);
+	tcpd:on('receive', function(sck, data)
+		if data ~= 'EOF' then
+			tcpd_cache = tcpd_cache..data;
 		else
-			return {};
+			msgReg_run(data);
+			tcpd_cache = nil;
 		end
-	end
-	_.package.set = function(to--[[nid]], body--[[obj]], mode)
-		local o = {
-			from = _.config.v.nid,
-			to = to,
-			mode = mode,
-			body = body
+	end);
+	--connect to director
+	tmr.create():alarm(10000, tmr.ALARM_AUTO, function()
+		if socket == nil then
+			tcpd:connect(config.director.port, config.director.ip);
+		end
+	end)
+
+collectgarbage("collect")
+print('TCP Startup', node.heap())
+
+--[[
+	--MSG Setup
+	--------------
+	-- MSG Methods
+	msg = {
+		send = function(to, name, body, proxy)
+			local port_ip = ns[to];
+			local package = pack.encode({
+				from = config.nid,
+				to = to,
+				name = name,
+				body = body
+			});
+			if port_ip == nil or proxy == true then
+				if socket ~= nil then
+					socket:send(package);
+					return ture;
+				else
+					return false;
+				end
+			end
+			udpd:send(port_ip.port, port_ip.ip, package);
+			return true;
+		end,
+		onSend = function(name, method)
+			msgReg[name] = method;
+		end
+	}
+collectgarbage("collect")
+print('MSG Setup', node.heap())
+
+	--FUNC Startup
+	--------------
+	--Load Func to RAM
+	local func = fs.read(FUNC_PATH);
+	--Default Mode
+	if type(func) ~= 'table' or type(func.id) ~= 'string' or type(func.online) ~= 'string' then
+		func = {
+			id = 'default',
+			online = ''
 		}
-		return _.package.pack(o);
 	end
-	_.package.get = function(pack--[[string package]])
-		local status, obj = pcall(json.decode, pack);
-		if status and obj.from and obj.mode then
-			return obj.from, obj.body, obj.mode;
-		else
-			return nil, nil, nil;
-		end
-	end
+	--warp running
+	__run(func.online, db, msg);
+]]
+collectgarbage("collect")
+print('FUNC Startup', node.heap())
 
-	--db
-	_.db.toIndex = function(key)
-		return encoder.toBase64(key);
-	end
-	_.db.fromIndex = function(index)
-		return encoder.fromBase64(index);
-	end
-	_.db.getFileName = function(key)
-		return _.config.v.fs.prefix.data.._.db.toIndex(key);
-	end
-	_.db.public.keys = function() --list all keys with size
-		local o = {};
-		for local k, v in pairs(file.list(_.config.v.fs.prefix.data..'.')) do
-			o[_.db.fromIndex(k)] = v;
+	--Heartbeat Startup
+	-------------------
+	local tcpd_heartbeat_timer = tmr.create():alarm(config.director.HeartbeatInterval, tmr.ALARM_AUTO, function()
+		if socket then
+			socket:send(config.nid..':'..tostring(tmr.time()));
 		end
-		return o;
-	end
-	_.db.public.get = function(key)
-		return _.f.read();
-	end
-	_.db.public.set = function(key, obj)
-		return _.f.write(_.db.getFileName(key), obj);
-	end
-	_.db.public.del = function(key)
-		local fileName = _.db.getFileName(key);
-		file.remove(fileName);
-		return ~file.exists(fileName);
-	end
-	_.db.public.clear = function()
-		local flag = true;
-		for local k, v in pairs(_.db.public.keys()) do
-			flag = flag and _.db.public.del(k);
-		end
-		return flag;
-	end
-
-	--msg
-	_.msg.dpost = function(to, name, body, cb--[[(bool status, data)]])
-		if _.ns.exist(to) then
-			http.post(
-				'http://'.._.ns.render(to)..'/msg/'..encoder.toBase64(name),
-				'Content-Type: application/json\r\n',
-				_.package.set(to, body, 'post'),
-				function(code, res)
-					if code ~= 200 then
-						cb(false);
-					else
-						cb(true, _.package.get(res));
-					end
-				end
-			);
-		else
-			cb(false);
-		end
-	end
-	_.msg.dsend = function(to, name, body)
-		if _.ns.exist(to) then
-			http.post(
-				'http://'.._.ns.render(to)..'/msg/'..encoder.toBase64(name),
-				'Content-Type: application/json\r\n',
-				_.package.set(to, body, 'send'),
-				function(code, res) end
-			);
-		end
-	end
-	_.msg.mpost = function(to, name, body, cb)
-		_.msg.postWaitList[encoder.toBase64(name)..to] = false;
-		local PostBeginAt = tmr.time();
-		_.timer.setInterval(function(delay)
-			if _.msg.postWaitList[encoder.toBase64(name)..to] ~= false then
-				cb(true, _.msg.postWaitList[encoder.toBase64(name)..to]);
-				_.msg.postWaitList[encoder.toBase64(name)..to] = nil;
-				delay(-1);
-			else
-				if PostBeginAt < tmr.time() - _.config.v.mqtt.PostTimeout then
-					cb(false);
-					_.msg.postWaitList[encoder.toBase64(name)..to] = nil;
-					delay(-1);
-				end
-			end
-		end, _.config.v.mqtt.PostCheckInterval);
-		_.mqtt.v:publish(
-			_.config.v.mqtt.topicPrefix..to..'/'..encoder.toBase64(name),
-			_.package.set(to, body, 'post'),
-			1,
-			0
-		);
-	end
-	_.msg.msend = function(to, name, body)
-		_.mqtt.v:publish(
-			_.config.v.mqtt.topicPrefix..to..'/'..encoder.toBase64(name),
-			_.package.set(to, body, 'send'),
-			0,
-			0
-		);
-	end
-	_.msg.public.onSend = function(name, f--[[(body, from)]])
-		_.msg.reg.send[encoder.toBase64(name)] = f;
-	end
-	_.msg.public.onPost = function(name, f--[[body, from, reply(reply_body)]])
-		_.msg.reg.post[encoder.toBase64(name)] = f;
-	end
-	_.msg.public.send = function(to, name, body)
-		if _.ns.exist(to) then
-			_.msg.dsend(to, name, body);
-		else
-			_.msg.msend(to, name, body);
-		end
-	end
-	_.msg.public.post = function(to, name, body, cb)
-		if _.ns.exist(to) then
-			_.msg.dpost(to, name, body, cb);
-		else
-			_.msg.mpost(to, name, body, cb);
-		end
-	end
-
-	--api
-	_.api.http.discover = function(res)
-		res.finish(_.config.v.nid, 200);
-	end
-	_.api.http.msg = function(name, req, res)
-		local data = '';
-		req.ondata = function(req, chunk)
-			if chunk ~= nil then
-				data = data..chunk;
-			else
-				local from, body, mode = _.package.get(data);
-				if mode == 'send' then
-					res.finish();
-					for k, v in pairs(_.msg.reg.send) do
-						if k == name then
-							v(body, from);
-							return;
-						end
-					end
-				elseif mode == 'post' then
-					for k, v in pairs(_.msg.reg.post) do
-						if k == name then
-							v(body, from, function(reply_body)
-								res.finish(_.package.set(from, reply_body, 'reply'));
-							end);
-							return;
-						end
-					end
-					res.finish(nil, 404);
-				end
-			end
-		end
-	end
-	_.api.mqtt.msg = function(name, data)
-		local from, body, mode = _.package.get(data);
-		if mode == 'send' then
-			for k, v in pairs(_.msg.reg.send) do
-				if k == name then
-					v(body, from);
-					return;
-				end
-			end
-		elseif mode == 'post' then
-			for k, v in pairs(_.msg.reg.post) do
-				if k == name then
-					v(body, from, function(reply_body)
-						_.mqtt.v:publish(_.config.v.mqtt.topicPrefix..from..'/msg/'..name.._.config.v.nid, _.package.set(from, reply_body, 'reply'), 1, 0);
-					end);
-					return;
-				end
-			end
-		elseif mode == 'reply' then
-			for k, v in pairs(_.msg.postWaitList) do
-				if k == name then
-					_.msg.postWaitList[k] = body;
-					return;
-				end
-			end
-		end
-	end
-	_.api.mqtt.heartbeat = function()
-		local o = {
-			nid = _.config.v.nid,
-			uptime = tmr.time(),
-			heap = node.heap(),
-			funcID = _.func.id,
-			ip = wifi.sta.getip(),
-			ns = _.ns.get()
-		}
-		_.mqtt.v:publish(_.mqtt.getTopic('heartbeat'), _.package.pack(o), 0, 0);
-	end
-	_.api.mqtt.ns = function(data)
-		local obj = _.package.depack(data);
-		_.ns.set(obj);
-	end
-	_.api.mqtt.func = function(data)
-		local obj = _.package.depack(data);
-		_.f.write(_.config.v.fs.prefix.system.._.config.v.fs.filename.func, obj);
-		_._.restart();
-	end
-	_.api.mqtt.restart = function()
-		_._.restart();
-	end
-
-
-	--Environment Loading & Checking
-	----------------------
-	--Config Checking
-	_.config.v = _.f.read(_.config.path);
-	_.table.merge(_.config.v, _.config.default);
-
-	--Flag Checking
-	_.flag.load();
-	if _.flag.v == nil then
-		_.flag.set(0);
-	end
-
-	--User Func Checking
-	local func = _.f.read(_.config.v.fs.prefix.system.._.config.v.fs.filename.func);
-	if func and func.id and func.offline and func.online then
-		_.func.id = func.id;
-		_.func.offline = func.offline;
-		_.func.online = func.online;
-	end
-	func = nil;
-
-	--System Preparation
-	--------------------
-	--Signal Start
-	_.signal.init();
-	_.signal.set(1500);
-	--Decide System Mode
-	_.flag.set(_.flag.v + 1);
-	if _.flag.v >= _.config.v.flag.MaxRetryTimes and _.flag.v <= _.config.v.flag.MaxRetryTimes + _.config.v.flag.MaxResetTimes  then
-		_._.reset();
-	elseif _.flag.v > _.config.v.flag.MaxRetryTimes + _.config.v.flag.MaxResetTimes then
-		--safe mode
-		--Signal set
-		_.signal.set(3000);
-		do return end;
-	end
-
-	--OFFLINE System Launch
-	-----------------------
-	--Signal set
-	_.signal.set(800);
-	--Run user offline func
-	_.flag.ward(function()
-		tmr.softwd(_.config.v.func.offline.MaxWaitTime); --start watchdog
-		if not __run(_.func.offline, _.timer, _.db.public, nil)--[[enable DB and disable MSG]] then
-			_._.restart('Offline Func Startup Fail..');
-		end
-		tmr.softwd(-1); --disable watchdog
 	end);
 
-	--Network Modules Init
-	----------------------
-	--If OFFLINEONLY is configed, do not start network 
-	if _.config.v.offlineOnly == true then
-		return;
-	end
-	--Signal set
-	_.signal.set(200);
-	--Connect to wifi AP
-	wifi.setmode(wifi.STATION);
-	wifi.sta.sethostname('WIOT-'.._.config.v.nid);
-	wifi.sta.config(_.config.v.wifi.config);
-	_.timer.setInterval(function(delay)
-		if wifi.sta.getip() ~= nil then
-			delay(-1);
-			_.init.http();
-			_.init.mqtt();
-		end
-	end, _.config.v.wifi.CheckInterval);
 
-	--http module
-	_.init.http = function()
-		_.http.v = httpserver.createServer(_.config.v.http.port, function(req, res)
-			local path = string.split(req.url, '/');
-			if path[2] == 'discover' then
-				_.api.http.discover(res);
-			elseif path[2] == 'msg' and path[3] then
-				_.api.http.msg(path[3], req, res);
-			else
-				res.finish('', 500);
-			end
-		end);
-	end
+	--Clear Flag
+	----------
+	file.remove(FLAG_PATH);
 
-	--mqtt module
-	_.init.mqtt = function()
-		_.mqtt.v = mqtt.Client(_.config.v.nid, _.config.v.mqtt.keepaliveTimer, _.config.v.mqtt.user, _.config.v.mqtt.password);
-		_.mqtt.v:lwt(_.mqtt.getTopic('status'), 'offline', 0, 0);
-		_.mqtt.v:on('offline', function()
-			_.timer.setTimeout(_.mqtt.start, _.config.v.mqtt.OfflineRetryInterval);
-		end);
-		_.mqtt.v:on('message', function(client, topic, data)
-			local path = string.split(string.split(topic, _.config.v.mqtt.topicPrefix), '/');
-			if path[1] == 'ctl' then
-				if path[2] == 'heartbeat' then
-					_.api.mqtt.heartbeat();
-				elseif path[2] == 'ns' then
-					_.api.mqtt.ns(data);
-				elseif path[2] == 'func' then
-					_.api.mqtt.func(data);
-				elseif path[2] == 'restart' then
-					_.api.mqtt.restart();
-				end
-			elseif path[1] == 'msg' and path[2] then
-				_.api.mqtt.msg(path[2], data);
-			end
- 		end);
-	end
 
-	--ONLINE System Launch
-	----------------------
-	--Run user offline func
-	_.init.onlineFunc = function()
-		_.flag.ward(function()
-			tmr.softwd(_.config.v.func.online.MaxWaitTime); --start watchdog
-			if not __run(_.func.online, _.timer, _.db.public, _.msg.public)--[[enable DB and MSG]] then
-				_._.restart('online Func Startup Fail..');
-			end
-			tmr.softwd(-1); --disable watchdog
-			_.signal.destroy(); --destroy signal
-		end);
-	end
-	
-end)(function(func, timer, db, msg)
+end);
+
+
+coroutine.resume(main, function(func, db, msg)
 	return pcall(loadstring(func));
 end);
