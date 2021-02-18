@@ -1,26 +1,3 @@
---
--- File: _init.lua
---[[
-  This is a template for the LFS equivalent of the SPIFFS init.lua.
-  It is a good idea to such an _init.lua module to your LFS and do most of the LFS
-  module related initialisaion in this. This example uses standard Lua features to
-  simplify the LFS API.
-  For Lua 5.1, the first section adds a 'LFS' table to _G and uses the __index
-  metamethod to resolve functions in the LFS, so you can execute the main
-  function of module 'fred' by executing LFS.fred(params), etc.
-  It also implements some standard readonly properties:
-  LFS._time    The Unix Timestamp when the luac.cross was executed.  This can be
-               used as a version identifier.
-  LFS._config  This returns a table of useful configuration parameters, hence
-                 print (("0x%6x"):format(LFS._config.lfs_base))
-               gives you the parameter to use in the luac.cross -a option.
-  LFS._list    This returns a table of the LFS modules, hence
-                 print(table.concat(LFS._list,'\n'))
-               gives you a single column listing of all modules in the LFS.
-   For Lua 5.3 LFS table is populated by the LFS implementation in C so this part
-   of the code is skipped.
----------------------------------------------------------------------------------]]
-
 local lfsindex = node.LFS and node.LFS.get or node.flashindex
 local G=_ENV or getfenv()
 local lfs_t
@@ -42,39 +19,20 @@ if _VERSION == 'Lua 5.1' then
           return nil
         end
       end,
-
-    __newindex = function(_, name, value) -- luacheck: no unused
+    __newindex = function(_, name, value)
         error("LFS is readonly. Invalid write to LFS." .. name, 2)
       end,
     }
-
     setmetatable(lfs_t,lfs_t)
-    G.module       = nil    -- disable Lua 5.0 style modules to save RAM
+    G.module       = nil
     package.seeall = nil
 else
     lfs_t = node.LFS
 end
 G.LFS = lfs_t
-
---[[-------------------------------------------------------------------------------
-  The second section adds the LFS to the require searchlist, so that you can
-  require a Lua module 'jean' in the LFS by simply doing require "jean". However
-  note that this is at the search entry following the FS searcher, so if you also
-  have jean.lc or jean.lua in SPIFFS, then this SPIFFS version will get loaded into
-  RAM instead of using. (Useful, for development).
-  See docs/en/lfs.md and the 'loaders' array in app/lua/loadlib.c for more details.
----------------------------------------------------------------------------------]]
-
-package.loaders[3] = function(module) -- loader_flash
+package.loaders[3] = function(module)
   return lfs_t[module]
 end
-
---[[----------------------------------------------------------------------------
-  These replace the builtins loadfile & dofile with ones which preferentially
-  load from the filesystem and fall back to LFS.  Flipping the search order
-  is an exercise left to the reader.-
-------------------------------------------------------------------------------]]
-
 local lf = loadfile
 G.loadfile = function(n)
   if file.exists(n) then return lf(n) end
@@ -82,6 +40,4 @@ G.loadfile = function(n)
   local fn  = mod and lfsindex(mod)
   return (fn or error (("Cannot find '%s' in FS or LFS"):format(n))) and fn
 end
-
--- Lua's dofile (luaB_dofile) reaches directly for luaL_loadfile; shim instead
 G.dofile = function(n) return assert(loadfile(n))() end

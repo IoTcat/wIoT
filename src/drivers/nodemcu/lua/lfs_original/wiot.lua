@@ -97,17 +97,7 @@ __main = coroutine.create(function(__run)
 	--Load Config (Assume config file is
 	--             exist and good)
 	-------------
-	--load config
 	local config = fs.read(CONFIG_PATH);
-	--Load Func to RAM
-	local func = fs.read(FUNC_PATH);
-	--Default Mode
-	if type(func) ~= 'table' or type(func.id) ~= 'string' or type(func.online) ~= 'string' then
-		func = {
-			id = 'default',
-			online = ''
-		}
-	end
 
 --For Debug Purpose	
 --collectgarbage("collect")
@@ -286,28 +276,23 @@ __main = coroutine.create(function(__run)
 	local socket = nil;
 	tcpd:on('connection', function(sck, data) 
 		socket = sck;
-		--SIGNAL: TCP OK, release timer object
+		--SIGNAL: TCP OK, delete timer object
+		setSignalInterval = nil;
 		signal_timer:unregister();
-		if func.id == 'default' then
-			gpio.write(SIGNAL_LED, gpio.LOW);
-		else
-			gpio.write(SIGNAL_LED, gpio.HIGH);
-		end
+		signal_timer = nil;
+		gpio.write(SIGNAL_LED, gpio.HIGH);
 	end);
 	tcpd:on('disconnection', function(sck, data) 
 		socket = nil;
-		tmr.create():alarm(1000, tmr.ALARM_SINGLE, function()
-			tcpd:connect(config.director.port, config.director.ip);
-		end)
-		--SIGNAL: TCP BAD
-		setSignalInterval(1000);
 	end);
 	tcpd:on('receive', function(sck, data)
 		msgReg_run(data);
 	end);
 	--connect to director
-	tmr.create():alarm(1000, tmr.ALARM_SINGLE, function()
-		tcpd:connect(config.director.port, config.director.ip);
+	tmr.create():alarm(3000, tmr.ALARM_AUTO, function()
+		if socket == nil then
+			tcpd:connect(config.director.port, config.director.ip);
+		end
 	end)
 
 --For Debug Purpose
@@ -454,6 +439,15 @@ __main = coroutine.create(function(__run)
 
 	--FUNC Startup
 	--------------
+	--Load Func to RAM
+	local func = fs.read(FUNC_PATH);
+	--Default Mode
+	if type(func) ~= 'table' or type(func.id) ~= 'string' or type(func.online) ~= 'string' then
+		func = {
+			id = 'default',
+			online = ''
+		}
+	end
 	--warp running
 	--print(func.id)
 	local status, errmsg = __run(func.online, db, msg);
