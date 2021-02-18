@@ -20,32 +20,40 @@ __main = coroutine.create(function(__run)
 	----------------
 	-- Package Methods
 	local pack = {
-		encode = function(obj)
+		--encode any type other than function into string
+		encode = function(obj) --(any data) => string packedString
 			local status, json = pcall(sjson.encode, {obj});
 			if status then
+				--if encode is success
 				return string.sub(json, 2, -2);
 			else
+				--if the encode is fail
 				return '';
 			end
 		end,
-		decode = function(str)
+		--decode the string into the original type data
+		decode = function(str) --(string packedString) => any data
 			if type(str) ~= 'string' then
 				return nil
 			end;
 			local status, obj = pcall(sjson.decode, '['..str..']');
 			if status then
+				--if decode is success
 				return obj[1];
 			else
+				--if decode is fail
 				return nil;
 			end
 		end
 	}
 	-- File Object Operation
 	local fs = {
-		read = function(f)--f:filename
-				return pack.decode(file.getcontents(f));
+		--read a multi-type data from a file
+		read = function(f) --(string filename) => any filedata
+			return pack.decode(file.getcontents(f));
 		end,
-		write = function(f, obj)
+		--write any type data other than function into a file
+		write = function(f, obj) --(string filename, any data) => bool status
 			local res = pack.encode(obj);
 			if res == '' then
 				return false;
@@ -58,7 +66,9 @@ __main = coroutine.create(function(__run)
 		end
 	}
 	--split string
-	local stringSplit = function(str, reps)
+	--split the string with reps and return a table with
+	--all elemets. e.g. ('abcdabcd', 'a') => {'bcd', 'bcd'}
+	local stringSplit = function(str, reps) --(string string, string separator) => table splitedString
 	    local resultStrList = {}
 	    string.gsub(str,'[^'..reps..']+', function (w)
 	        table.insert(resultStrList,w);
@@ -77,8 +87,9 @@ __main = coroutine.create(function(__run)
 	gpio.mode(SIGNAL_LED, gpio.OUTPUT);
 	local signal_timer = tmr.create();
 	--Control Methods
-	local setSignalInterval = function(interval)
+	local setSignalInterval = function(interval) --(number interval) => nil
 		signal_timer:alarm(interval, tmr.ALARM_AUTO, function()
+			--reverse the SIGNAL led output, 0->1, 1->0
 			if gpio.read(SIGNAL_LED) == gpio.HIGH then
 				gpio.write(SIGNAL_LED, gpio.LOW);
 			else
@@ -175,24 +186,27 @@ __main = coroutine.create(function(__run)
 	--------------
 	-- SWAP Method
 	local swap = {}
-	function swap:set(key, val, prefix)
+	function swap:set(key, val, prefix) --(string key, any data, string prefix) => bool status
 		return fs.write(prefix..encoder.toBase64(key), val);
 	end
-	function swap:get(key, prefix)
+	function swap:get(key, prefix) --(string key, string prefix) => any data
 		return fs.read(prefix..encoder.toBase64(key));
 	end
-	function swap:del(key, prefix)
+	function swap:del(key, prefix) --(string key, string prefix) => nil
 		file.remove(prefix..encoder.toBase64(key));
 	end
-	function swap:list(prefix)
+	--list a table of all keys with the prefix
+	function swap:list(prefix)  --(string prefix) => table ['key']
 		local fileList = file.list(prefix..'.');
 		local keys = {};
 		for k, v in pairs(fileList) do
+			--push key to keys table
 			table.insert(keys, encoder.fromBase64(string.sub(k, #prefix + 1)));
 		end
 		return keys;
 	end
-	function swap:clear(prefix)
+	--delete all key-value with the prefix
+	function swap:clear(prefix)  --(string prefix) => nil
 		for index, key in pairs(self:list(prefix)) do
 			self:del(key, prefix);
 		end
@@ -203,18 +217,27 @@ __main = coroutine.create(function(__run)
 --print('SWAP Setup', node.heap())
 
 
-	--Name Service (NS) Setup
+	--Name Service (NS) Setup  (NS service provide Methods
+	--							to convert nid into UDP ip and port
+	--							so the direct connection to the corresponding
+	--							node can be established )
 	--------------------
 	local ns = setmetatable({}, {
+		--read method
 		__index = function(table, key)
+			--search key in SWAP
 			local res = swap:get(key, SWAP_PREFIX..'NS/');
 			if res == nil or res.port == nil or res.ip == nil then
+				--if no such key or wrong format, return nil
 				return nil;
 			else
+				--if good, return the ns table
 				return res;
 			end
 		end,
+		--assign method
 		__newindex = function(table, key, val)
+				--storage the ns key-value into SWAP
 				swap:set(key, val, SWAP_PREFIX..'NS/');
 		end
 	});
@@ -224,30 +247,39 @@ __main = coroutine.create(function(__run)
 --print('NS Setup', node.heap())
 
 
-	--MSG Register Init
+	--MSG Register Init ( MSG register storages the user-defined
+	--						methods to handle the income message
+	--						from inter-board and server-client communication)
 	-------------------
 	--MSG Register Clear
 	swap:clear(SWAP_PREFIX..'M/');
 	--MSG register (in SWAP)
 	local msgReg = setmetatable({}, {
+		--read method
 		__index = function(table, key)
+			--search key in SWAP
 			local res = swap:get(key, SWAP_PREFIX..'M/');
 			if res == nil then
+				--if no such key, return nil
 				return nil;
 			else
+				--if has such key, return the method
 				return loadstring(encoder.fromBase64(res));
 			end
 		end,
+		--assign method
 		__newindex = function(table, key, val)
 			if type(val) ~= 'function' then
+				--if value is not a function, then delete the corresponding key in SWAP
 				swap:del(key, SWAP_PREFIX..'M/');
 			else
+				--if value is a function, then save it in SWAP
 				swap:set(key, encoder.toBase64(string.dump(val)), SWAP_PREFIX..'M/');
 			end
 		end
 	});
 	--MSG Reg Method
-	msgReg_run = function(data)
+	msgReg_run = function(data) --(string incomingData) => nil
 		--decode data
 		local data = pack.decode(data);
 		--check data
@@ -266,12 +298,16 @@ __main = coroutine.create(function(__run)
 --print('MSG Register Init', node.heap())
 
 
-	--UDP Startup
+	--UDP Startup ( Start up a udp server
+	--				for inter-board communication)
 	-------------
 	--Start UDP Service
+	--create a udp server
 	local udpd = net.createUDPSocket();
 	udpd:listen(config.msg.port);
+	--when message comming
 	udpd:on('receive', function(socket, data, port, ip)
+		--send message to msg register
 		msgReg_run(data);
 	end);
 
@@ -279,33 +315,46 @@ __main = coroutine.create(function(__run)
 --collectgarbage("collect")
 --print('UDP Startup', node.heap())
 
-	--TCP Startup
+
+	--TCP Startup ( Start up a tcp client
+	--				to communication with
+	--				the director )
 	-------------
 	--Start TCP Service
 	local tcpd = net.createConnection(net.TCP, 0);
+	--Set the socket variable to nil as a signal of disconnect
 	local socket = nil;
+	--when tcp is connected
 	tcpd:on('connection', function(sck, data) 
+		--set socket variable to alive socket object
 		socket = sck;
 		--SIGNAL: TCP OK, release timer object
 		signal_timer:unregister();
 		if func.id == 'default' then
+			--if no user Func, signal led on
 			gpio.write(SIGNAL_LED, gpio.LOW);
 		else
+			--if runs user Func, signal led off
 			gpio.write(SIGNAL_LED, gpio.HIGH);
 		end
 	end);
+	--when tcp is disconnect or a connect try timeout
 	tcpd:on('disconnection', function(sck, data) 
+		--set socket variable to nil as a signal of disconnect
 		socket = nil;
+		--reconnect after 1s
 		tmr.create():alarm(1000, tmr.ALARM_SINGLE, function()
 			tcpd:connect(config.director.port, config.director.ip);
 		end)
 		--SIGNAL: TCP BAD
 		setSignalInterval(1000);
 	end);
+	--when tcp incomming message
 	tcpd:on('receive', function(sck, data)
+		--send message to msg register
 		msgReg_run(data);
 	end);
-	--connect to director
+	--connect to director with 1000 delay
 	tmr.create():alarm(1000, tmr.ALARM_SINGLE, function()
 		tcpd:connect(config.director.port, config.director.ip);
 	end)
@@ -315,30 +364,42 @@ __main = coroutine.create(function(__run)
 --print('TCP Startup', node.heap())
 
 
-	--MSG Setup
+	--MSG Setup ( MSG module is exposed to user
+	--			  program runtime environment.
+	--			  It provide inter-board communication
+	--			  APIs that user' program can easily
+	--			  use)
 	--------------
 	-- MSG Methods
 	local msg = {
 		send = function(to, name, body, proxy)
+			--query target nid in ns
 			local port_ip = ns[to];
+			--pack the msg body
 			local package = pack.encode({
 				from = config.nid,
 				to = to,
 				name = name,
 				body = body
 			});
+			--If no ns record or the proxy params is true, 
+			--send via tcp to director
 			if port_ip == nil or proxy == true then
 				if socket ~= nil then
+					--if tcp is alive
 					socket:send(package);
-					return ture;
+					return true;
 				else
+					--if tcp is dead
 					return false;
 				end
 			end
+			--if have ns record, send via udp to target device directly
 			udpd:send(port_ip.port, port_ip.ip, package);
 			return true;
 		end,
 		onSend = function(name, method)
+			--register a new method to msg register
 			msgReg[name] = method;
 		end
 	}
@@ -348,23 +409,26 @@ __main = coroutine.create(function(__run)
 --print('MSG Setup', node.heap())
 
 
-	--DB Setup
+	--DB Setup (DB Module is exposed to user program
+	--			runtimg environment. It provide a mini
+	--			local key-value database basing on Flash
+	--			file system)
 	--------------
 	--DB Methods
 	local db = {
-		set = function(key, val)
+		set = function(key, val) ---(string key, any data) => bool status
 			return swap:set(key, val, DB_PREFIX);
 		end,
-		get = function(key)
+		get = function(key) --(string key) => any data
 			return swap:get(key, DB_PREFIX);
 		end,
-		del = function(key, prefix)
+		del = function(key) --(string key) => nil
 			swap:del(key, DB_PREFIX);
 		end,
-		list = function(prefix)
+		list = function() --() => table ['key']
 			return swap:list(DB_PREFIX);
 		end,
-		clear = function()
+		clear = function() -- () => nil
 			swap:clear(DB_PREFIX);
 		end
 	}
@@ -374,7 +438,9 @@ __main = coroutine.create(function(__run)
 --print('DB Setup', node.heap())
 
 
-	--Heartbeat Startup
+	--Heartbeat Startup (Heartbeat Service keep the TCP channel
+	--					to the director alive to against NAT
+	--					timeout.)
 	-------------------
 	local tcpd_heartbeat_timer = tmr.create():alarm(config.director.HeartbeatInterval, tmr.ALARM_AUTO, function()
 		if socket then
@@ -387,14 +453,16 @@ __main = coroutine.create(function(__run)
 --print('Heartbeat Startup', node.heap())
 
 
-	--System APIs
+	--System APIs (System APIs provide a set of system-level APIs
+	--				for the director so it can operate this device)
 	-------------
 	--getInfo API
 	rawset(msgReg, '__getInfo', function(from, body)
 		if from == 'director' then
+			--Send info package to director
 			msg.send('director', '__getInfo', {
-				remainHeap = node.heap(),
-				remainFS = file.fsinfo(),
+				remainHeap = node.heap(), --remain RAM
+				remainFS = file.fsinfo(), --remain Flash storage
 				msgPort = config.msg.port,
 				HeartbeatInterval = config.director.HeartbeatInterval,
 				ns = swap:list(SWAP_PREFIX..'NS/'),
@@ -406,11 +474,13 @@ __main = coroutine.create(function(__run)
 	rawset(msgReg, '__setNS', function(from, body)
 		if from == 'director' and type(body) == 'table' and type(body.nid) == 'string' then
 			if type(body.port) == 'number' and type(body.ip) == 'string' then
+				--if request body is legal, update local ns
 				ns[body.nid] = {
 					port = body.port,
 					ip = body.ip
 				}
 			else
+				--if request body is legal but no content, del corresponding local ns
 				ns[body.nid] = nil;
 			end
 		end
@@ -419,8 +489,10 @@ __main = coroutine.create(function(__run)
 	rawset(msgReg, '__checkNS', function(from, body)
 		if  type(body) == 'string' then
 			if from == 'director' then
+				--if query from director, send to peer via udp
 				msg.send(body, '__checkNS', config.nid);
 			else
+				--if query from peer, send to director via tcp
 				msg.send('director', '__checkNS', body, true);
 			end
 		end
@@ -429,13 +501,16 @@ __main = coroutine.create(function(__run)
 	rawset(msgReg, '__setFunc', function(from, body)
 		if from == 'director' then
 			if type(body.func) == 'table' and type(body.func.id) == 'string' and type(body.func.online) == 'string' then
+				--if the request body is legal, update local FUNC
 				fs.write(FUNC_PATH, body.func);
+				--if have ns in request body, then update local ns list
 				if type(body.ns) == 'table' then
 					swap:clear(SWAP_PREFIX..'NS/');
 					for k, v in pairs(body.ns) do
 						ns[k] = v;
 					end
 				end
+				--restart the system to run new Func
 				node.restart();
 			end
 		end
@@ -452,19 +527,23 @@ __main = coroutine.create(function(__run)
 --print('System APIs', node.heap())
 
 
-	--FUNC Startup
+	--FUNC Startup (Run the user's program
+	--				in sandbox)
 	--------------
 	--warp running
-	--print(func.id)
 	local status, errmsg = __run(func.online, db, msg);
 	--print(status, errmsg)
 	if status then
+		--flag watchdog, handle unknown error
 		tmr.create():alarm(10000, tmr.ALARM_SINGLE, function()
+			--the startup of user program is successful 
 			file.remove(FLAG_PATH);
 		end);
 	else
+		--user program startup fail, restart system
 		node.restart();
 	end
+	--release resources
 	status, errmsg = nil, nil;
 
 --For Debug Purpose
@@ -477,16 +556,20 @@ __main = coroutine.create(function(__run)
 
 end);
 
---Boot __main env with a sandbox for user program running
-coroutine.resume(__main, function(func, db, msg)
+--Boot __main process with a sandbox for user program running
+coroutine.resume(__main, function(func, db, msg) --This is a sandbox env for user's program
+												-- (function userProgram, module db, module msg) => bool status, string errMessage
+	--handle string to code error
 	local status, res = pcall(loadstring, 'return function(db, msg) '..func..' end');
 	if not status then
 		return status, res;
 	else
+		--handle syntax error
 		status, res = pcall(res);
 		if not status then
 			return status, res;
 		else
+			--handle permission error
 			return pcall(res, db, msg);
 		end
 	end
