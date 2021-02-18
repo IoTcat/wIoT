@@ -10,7 +10,7 @@ module.exports = (yargs) => {
             ban.info('Preparing NodeMCU...10%');
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/init.lua');
             ban.info('Preparing NodeMCU...30%');
-            //await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/lfs.img');
+            await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/lfs.img');
             ban.info('Preparing NodeMCU...60%');
             await upload(argv._[1], __dirname+'/../drivers/nodemcu/lua/config.json');
             ban.info('Preparing NodeMCU...70%');
