@@ -1,0 +1,12 @@
+{
+  "name": "wiot-director",
+  "version": "0.0.1",
+  "description": "Director for wIoT systems.",
+  "main": "index.js",
+  "repository": "https://wiot.js.org",
+  "author": "iotcat",
+  "license": "MIT",
+  "dependencies": {
+    "log4js": "^6.3.0"
+  }
+}

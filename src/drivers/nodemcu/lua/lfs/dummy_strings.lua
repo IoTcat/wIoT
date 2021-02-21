@@ -9,4 +9,4 @@ local preload = "?.lc;?.lua", "/\n;\n?\n!\n-", "@init.lua", "_G", "_LOADED",
 "tmr.timer", "table", "string", "number", "function", "director", "collect", "__getInfo", "__setNS", "__checkNS",
 "__setFunc", "__restart", "default", "from", "to", "body", "name", "online", "func", "nid",
 "connection", "disconnection", "receive", "set", "get", "del", "list", "clear",
-'config.json', '__system/flag', 'func.json', '__data/', '__system/swap/'
+'config.json', '__system/flag', 'func.json', '__data/', '__system/swap/', '__system/error', 'Unknown Error occurs before 10s after func up'

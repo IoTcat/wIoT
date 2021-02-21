@@ -6,6 +6,7 @@ __main = coroutine.create(function(__run)
 	-----------------
 	local CONFIG_PATH = 'config.json';
 	local FLAG_PATH = '__system/flag';
+	local ERROR_PATH = '__system/error';
 	local FUNC_PATH = 'func.json';
 	local DB_PREFIX = '__data/';
 	local SWAP_PREFIX = '__system/swap/';
@@ -322,12 +323,32 @@ __main = coroutine.create(function(__run)
 	-------------
 	--Start TCP Service
 	local tcpd = net.createConnection(net.TCP, 0);
-	--Set the socket variable to nil as a signal of disconnect
-	local socket = nil;
+	--Set the socket status variable to false as a signal of disconnect
+	local socket = {
+		queue = {},
+		lock = false
+	};
+	--Send message in queue
+	function socket:send(str)
+		table.insert(socket.queue, str);
+		if #socket.queue > 0 and socket.sck ~= nil and socket.lock == false then
+			socket.sck:send(socket.queue[1]);
+			socket.lock = true;
+		end
+	end
 	--when tcp is connected
-	tcpd:on('connection', function(sck, data) 
+	tcpd:on('connection', function(sck, data) print('c', #socket.queue)
 		--set socket variable to alive socket object
-		socket = sck;
+		socket.sck = sck;
+		socket.lock = false;
+		--send node info to director
+		socket:send(pack.encode({
+			nid = config.nid,
+			funcID = func.id,
+			ip = wifi.sta.getip(),
+			error = file.getcontents(ERROR_PATH)
+		}));
+		file.remove(ERROR_PATH);
 		--SIGNAL: TCP OK, release timer object
 		signal_timer:unregister();
 		if func.id == 'default' then
@@ -339,15 +360,26 @@ __main = coroutine.create(function(__run)
 		end
 	end);
 	--when tcp is disconnect or a connect try timeout
-	tcpd:on('disconnection', function(sck, data) 
+	tcpd:on('disconnection', function(sck, data)  print('d', #socket.queue)
 		--set socket variable to nil as a signal of disconnect
-		socket = nil;
+		socket.sck = nil;
+		socket.lock = true;
 		--reconnect after 1s
 		tmr.create():alarm(1000, tmr.ALARM_SINGLE, function()
 			tcpd:connect(config.director.port, config.director.ip);
 		end)
 		--SIGNAL: TCP BAD
 		setSignalInterval(1000);
+	end);
+	--when tcp sent
+	tcpd:on('sent', function(sck)  print('s', #socket.queue)
+		table.remove(socket.queue, 1);
+		if #socket.queue > 0 and socket.sck ~= nil then
+			sck:send(socket.queue[1]);
+			socket.lock = true;
+		else
+			socket.lock = false;
+		end
 	end);
 	--when tcp incomming message
 	tcpd:on('receive', function(sck, data)
@@ -385,7 +417,7 @@ __main = coroutine.create(function(__run)
 			--If no ns record or the proxy params is true, 
 			--send via tcp to director
 			if port_ip == nil or proxy == true then
-				if socket ~= nil then
+				if socket.sck ~= nil then
 					--if tcp is alive
 					socket:send(package);
 					return true;
@@ -443,8 +475,13 @@ __main = coroutine.create(function(__run)
 	--					timeout.)
 	-------------------
 	local tcpd_heartbeat_timer = tmr.create():alarm(config.director.HeartbeatInterval, tmr.ALARM_AUTO, function()
-		if socket then
-			socket:send(config.nid..':'..tostring(tmr.time()));
+		if socket.sck then
+			--socket send
+			socket:send(pack.encode({
+				uptime = tmr.time(),
+				heap = node.heap(), --remain RAM
+				spiff = file.fsinfo() --remain Flash storage
+			}));
 		end
 	end);
 
@@ -461,12 +498,12 @@ __main = coroutine.create(function(__run)
 		if from == 'director' then
 			--Send info package to director
 			msg.send('director', '__getInfo', {
-				remainHeap = node.heap(), --remain RAM
-				remainFS = file.fsinfo(), --remain Flash storage
+				nid = config.nid,
+				funcID = func.id,
+				ip = wifi.sta.getip(),
 				msgPort = config.msg.port,
 				HeartbeatInterval = config.director.HeartbeatInterval,
-				ns = swap:list(SWAP_PREFIX..'NS/'),
-				funcID = func.id
+				ns = swap:list(SWAP_PREFIX..'NS/')
 			}, true);
 		end
 	end);
@@ -534,12 +571,18 @@ __main = coroutine.create(function(__run)
 	local status, errmsg = __run(func.online, db, msg);
 	--print(status, errmsg)
 	if status then
+		--prerecord errormsg
+		file.putcontents(ERROR_PATH, 'Unknown Error occurs before 10s after func up');
 		--flag watchdog, handle unknown error
 		tmr.create():alarm(10000, tmr.ALARM_SINGLE, function()
 			--the startup of user program is successful 
 			file.remove(FLAG_PATH);
+			--remove the prerecord errormsg
+			file.remove(ERROR_PATH);
 		end);
 	else
+		--record error
+		file.putcontents(ERROR_PATH, errmsg);
 		--user program startup fail, restart system
 		node.restart();
 	end
