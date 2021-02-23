@@ -1,5 +1,5 @@
 {
-	"nid": "good",
+	"nid": "good3",
 	"wifi": {
 		"ssid": "yimian-iot",
 		"pwd": "1234567890."
@@ -10,6 +10,6 @@
 	"director": {
 		"HeartbeatInterval": 10000,
 		"ip": "192.168.3.100",
-		"port": 4444
+		"port": 6789
 	}
 }

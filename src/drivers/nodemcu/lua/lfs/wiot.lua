@@ -239,7 +239,11 @@ __main = coroutine.create(function(__run)
 		--assign method
 		__newindex = function(table, key, val)
 				--storage the ns key-value into SWAP
-				swap:set(key, val, SWAP_PREFIX..'NS/');
+				if val == nil then
+					swap:del(key, SWAP_PREFIX..'NS/');
+				else
+					swap:set(key, val, SWAP_PREFIX..'NS/');
+				end
 		end
 	});
 
@@ -328,6 +332,7 @@ __main = coroutine.create(function(__run)
 		queue = {},
 		lock = false
 	};
+	local isOffline = true;
 	--Send message in queue
 	function socket:send(str)
 		table.insert(socket.queue, str);
@@ -337,7 +342,7 @@ __main = coroutine.create(function(__run)
 		end
 	end
 	--when tcp is connected
-	tcpd:on('connection', function(sck, data) print('c', #socket.queue)
+	tcpd:on('connection', function(sck, data)
 		--set socket variable to alive socket object
 		socket.sck = sck;
 		socket.lock = false;
@@ -346,6 +351,9 @@ __main = coroutine.create(function(__run)
 			nid = config.nid,
 			funcID = func.id,
 			ip = wifi.sta.getip(),
+			port = config.msg.port,
+			HeartbeatInterval = config.director.HeartbeatInterval,
+			uptime = tmr.time(),
 			error = file.getcontents(ERROR_PATH)
 		}));
 		file.remove(ERROR_PATH);
@@ -360,7 +368,7 @@ __main = coroutine.create(function(__run)
 		end
 	end);
 	--when tcp is disconnect or a connect try timeout
-	tcpd:on('disconnection', function(sck, data)  print('d', #socket.queue)
+	tcpd:on('disconnection', function(sck, data)
 		--set socket variable to nil as a signal of disconnect
 		socket.sck = nil;
 		socket.lock = true;
@@ -372,7 +380,7 @@ __main = coroutine.create(function(__run)
 		setSignalInterval(1000);
 	end);
 	--when tcp sent
-	tcpd:on('sent', function(sck)  print('s', #socket.queue)
+	tcpd:on('sent', function(sck)
 		table.remove(socket.queue, 1);
 		if #socket.queue > 0 and socket.sck ~= nil then
 			sck:send(socket.queue[1]);
@@ -407,6 +415,9 @@ __main = coroutine.create(function(__run)
 		send = function(to, name, body, proxy)
 			--query target nid in ns
 			local port_ip = ns[to];
+			if type(proxy) == 'table' and proxy.ip and proxy.port then
+				port_ip = proxy;
+			end
 			--pack the msg body
 			local package = pack.encode({
 				from = config.nid,
@@ -470,64 +481,61 @@ __main = coroutine.create(function(__run)
 --print('DB Setup', node.heap())
 
 
-	--Heartbeat Startup (Heartbeat Service keep the TCP channel
-	--					to the director alive to against NAT
-	--					timeout.)
-	-------------------
-	local tcpd_heartbeat_timer = tmr.create():alarm(config.director.HeartbeatInterval, tmr.ALARM_AUTO, function()
-		if socket.sck then
-			--socket send
-			socket:send(pack.encode({
-				uptime = tmr.time(),
-				heap = node.heap(), --remain RAM
-				spiff = file.fsinfo() --remain Flash storage
-			}));
-		end
-	end);
-
---For Debug Purpose
---collectgarbage("collect")
---print('Heartbeat Startup', node.heap())
-
 
 	--System APIs (System APIs provide a set of system-level APIs
 	--				for the director so it can operate this device)
 	-------------
 	--getInfo API
+	--getInfo method
+	local __getInfo = function()
+		local nsList = {};
+		for k, v in pairs(swap:list(SWAP_PREFIX..'NS/')) do
+			nsList[v] = swap:get(v, SWAP_PREFIX..'NS/');
+		end
+		--Send info package to director
+		msg.send('director', '__getInfo', {
+			funcID = func.id,
+			ip = wifi.sta.getip(),
+			port = config.msg.port,
+			HeartbeatInterval = config.director.HeartbeatInterval,
+			ns = nsList
+		}, true);
+	end
 	rawset(msgReg, '__getInfo', function(from, body)
 		if from == 'director' then
-			--Send info package to director
-			msg.send('director', '__getInfo', {
-				nid = config.nid,
-				funcID = func.id,
-				ip = wifi.sta.getip(),
-				msgPort = config.msg.port,
-				HeartbeatInterval = config.director.HeartbeatInterval,
-				ns = swap:list(SWAP_PREFIX..'NS/')
-			}, true);
+			__getInfo();
 		end
 	end);
 	--setNS API
 	rawset(msgReg, '__setNS', function(from, body)
-		if from == 'director' and type(body) == 'table' and type(body.nid) == 'string' then
-			if type(body.port) == 'number' and type(body.ip) == 'string' then
-				--if request body is legal, update local ns
-				ns[body.nid] = {
-					port = body.port,
-					ip = body.ip
-				}
+		if from == 'director' and type(body) == 'table' then 
+			if type(body.nid) == 'string' then
+				if type(body.port) == 'number' and type(body.ip) == 'string' then
+					--if request body is legal, update local ns
+					ns[body.nid] = {
+						port = body.port,
+						ip = body.ip
+					}
+				else
+					--if request body is legal but no content, del corresponding local ns
+					ns[body.nid] = nil;
+				end
 			else
-				--if request body is legal but no content, del corresponding local ns
-				ns[body.nid] = nil;
+				--if have ns in request body, then update local ns list
+				swap:clear(SWAP_PREFIX..'NS/');
+				for k, v in pairs(body) do
+					ns[k] = v;
+				end
 			end
+			__getInfo();
 		end
 	end);
 	--checkNS API
 	rawset(msgReg, '__checkNS', function(from, body)
-		if  type(body) == 'string' then
+		if  type(body) == 'table' and type(body.from) == 'string' and type(body.to) == 'string' and type(body.port) == 'number' and type(body.ip) == 'string' then
 			if from == 'director' then
 				--if query from director, send to peer via udp
-				msg.send(body, '__checkNS', config.nid);
+				msg.send(body.to, '__checkNS', body, body);
 			else
 				--if query from peer, send to director via tcp
 				msg.send('director', '__checkNS', body, true);
@@ -563,6 +571,32 @@ __main = coroutine.create(function(__run)
 --collectgarbage("collect")
 --print('System APIs', node.heap())
 
+
+	--Heartbeat Startup (Heartbeat Service keep the TCP channel
+	--					to the director alive to against NAT
+	--					timeout.)
+	-------------------
+	local tcpd_heartbeat_timer = tmr.create():alarm(config.director.HeartbeatInterval, tmr.ALARM_AUTO, function()
+		if socket.sck then
+			--socket send
+			socket:send(pack.encode({
+				uptime = tmr.time(),
+				heap = node.heap(), --remain RAM
+				spiff = file.fsinfo() --remain Flash storage
+			}));
+		--online
+		if isOffline then
+			tmr.create():alarm(300, tmr.ALARM_SINGLE, function() 
+				__getInfo();
+			end);
+		end
+		isOffline = nil;
+		end
+	end);
+
+--For Debug Purpose
+--collectgarbage("collect")
+--print('Heartbeat Startup', node.heap())
 
 	--FUNC Startup (Run the user's program
 	--				in sandbox)
