@@ -213,7 +213,7 @@ module.exports = (logger, nodetable) => {
 										}
 									});
 									restartTime = new Date().valueOf();
-									counter = 100;
+									//counter = 100;
 								}
 								timer();
 								counter --;

@@ -16,7 +16,7 @@ module.exports = (node, nodetable) => {
 	    console: { type: 'console' }
 	  },
 	  categories: {
-	  	flow: {appenders: ['flow'], level: 'info' },
+	  	flow: {appenders: ['flow', 'console'], level: 'info' },
 	    access: { appenders: ['access'], level: 'info' },
 	    event: {appenders: ['event', 'console'], level: 'info' },
 	    nslog: {appenders: ['nslog', 'console'], level: 'info' },

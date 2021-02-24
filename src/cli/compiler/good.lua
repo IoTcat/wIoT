@@ -1,0 +1,1 @@
+gpio.mode(3,gpio.INPUT);tmr.create():alarm(100, tmr.ALARM_AUTO, function()a66=gpio.read(3);if not (f_a66==a66) then msg.send('good3','a66',a66);msg.send('good4','a66',a66);end;f_a66=a66; end);
