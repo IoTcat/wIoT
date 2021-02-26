@@ -1,78 +1,57 @@
 module.exports = (yargs) => {
-    var o = {
-        init: async (argv) => new Promise(async resolve => {
-            ban = new ora(`Creating new wIoT project...`).start();
-            let path = './';
-            if(argv._.length > 2){
-                path = argv._[2];
-                if(path.substring(-1) != '/' && path.substring(-1) != '\\'){
-                    path += '/';
-                }
-            }
-            fs.mkdir(path + argv._[1], function(err){
-               if (err) {
-                    ban.fail('Creating failure!!');
-                    console.error(err);
-                    resolve();
-               }
-               o.copyFolder(__dirname + '/../../dist', path + argv._[1], function(err){
-                  if (err) {
-                        ban.fail('Creating failure!!');
-                        console.error(err);
-                        resolve();
-                   }
-                   ban.success('Initiate successfully!!');
-                   resolve()
-               })
-            });
-        }),
-        copyFolder: function(srcDir, tarDir, cb) {
-          fs.readdir(srcDir, function(err, files) {
-            var count = 0
-            var checkEnd = function() {
-              ++count == files.length && cb && cb()
-            }
-
-            if (err) {
-              checkEnd()
-              return
-            }
-
-            files.forEach(function(file) {
-              var srcPath = path.join(srcDir, file)
-              var tarPath = path.join(tarDir, file)
-
-              fs.stat(srcPath, function(err, stats) {
-                if (stats.isDirectory()) {
-                  console.log('mkdir', tarPath)
-                  fs.mkdir(tarPath, function(err) {
-                    if (err) {
-                      console.log(err)
-                      return
-                    }
-
-                    copyFolder(srcPath, tarPath, checkEnd)
-                  })
-                } else {
-                  copyFile(srcPath, tarPath, checkEnd)
-                }
-              })
-            })
-            files.length === 0 && cb && cb()
-          })
-        }
-    }
 
     const ora = require('ora');
     const fs = require('fs');
-    const path = require('path');
 
+    yargs
+    .command('init <ProjectName> [path]', "Create and initiate a new wIoT Project folder", yargs => {
+      return yargs
+      .option('director', {
+        alias: 'd',
+        default: 'http://127.0.0.1:3000/',
+        type: 'string',
+        describe: 'director URL'
+      })
+      .option('entrance', {
+        alias: 'e',
+        default: 'index.js',
+        type: 'string',
+        describe: 'default entrance'
+      })
+      .example([
+          ['$0 init myproject', 'Create a wiot project named "myproject" at current folder']
+        ])
+    }, async argv => {
+        let ban = new ora(`Creating new wIoT project...`).start();
+        let path = './';
 
-    yargs = yargs
-    .command('ini', "wiot ini <ProjectName> [path]".green + " Create and initiate a new wIoT Project folder", yargs => yargs, async argv => {
-        await o.init(argv);
+        if(argv.hasOwnProperty('path')){
+            path = argv.path;
+            if(path.substring(-1) != '/' && path.substring(-1) != '\\'){
+                path += '/';
+            }
+        }
+        let dir = path + argv.ProjectName;
+        if(fs.existsSync(dir)){
+          ban.fail('Folder already exists!!');
+          return;
+        }
+        fs.mkdir(dir, function(err){
+           if (err) {
+                ban.fail('Creating failure!!');
+                throw err;
+           }
+           fs.mkdirSync(dir+'/.wiot');
+           fs.writeFileSync(dir+'/.wiot/__hash', require('crypto').createHash('sha256').update(Math.random().toString()).digest('hex'));
+           fs.writeFileSync(dir+'/config.json', JSON.stringify({
+              name: argv.ProjectName,
+              entrance: argv.entrance,
+              director: argv.director,
+              nodes: {},
+              wifi: []
+           }, null, 2));
+           ban.succeed('Initiate successfully!!');
+        });
     })
 
-
-    return yargs;
 }

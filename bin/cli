@@ -1,22 +1,30 @@
 #!/usr/bin/env node
 var yargs = require('yargs');
 
+//set language to english
+yargs.locale('en');
+
 /* CLI code path */
 const src = __dirname + '/../src/cli/';
 
-/* help */
-yargs = require(src + 'help.js')(yargs);
-
-/* version */
-yargs = require(src + 'version.js')(yargs);
+/* init */
+require(src + 'init.js')(yargs);
 
 /* config */
-//yargs = require(src + 'config.js')(yargs);
+require(src + 'config.js')(yargs);
 
-/* push */
-yargs = require(src + 'push.js')(yargs);
+/* node */
+require(src + 'node.js')(yargs);
 
-/* device */
-yargs = require(src + 'device.js')(yargs);
+/* wifi */
+require(src + 'wifi.js')(yargs);
 
-argv = yargs.epilogue("-----------------------").argv;
+
+
+/* version */
+require(src + 'version.js')(yargs);
+
+/* help */
+require(src + 'help.js')(yargs);
+
+yargs.epilogue("-----------------------").argv;
