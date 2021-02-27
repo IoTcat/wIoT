@@ -374,7 +374,7 @@ __main = coroutine.create(function(__run)
 		socket.lock = true;
 		--reconnect after 1s
 		tmr.create():alarm(1000, tmr.ALARM_SINGLE, function()
-			tcpd:connect(config.director.port, config.director.ip);
+			tcpd:connect(config.director.port, config.director.hostname);
 		end)
 		--SIGNAL: TCP BAD
 		setSignalInterval(1000);
@@ -396,7 +396,7 @@ __main = coroutine.create(function(__run)
 	end);
 	--connect to director with 1000 delay
 	tmr.create():alarm(1000, tmr.ALARM_SINGLE, function()
-		tcpd:connect(config.director.port, config.director.ip);
+		tcpd:connect(config.director.port, config.director.hostname);
 	end)
 
 --For Debug Purpose

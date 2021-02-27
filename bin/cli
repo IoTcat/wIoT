@@ -19,7 +19,23 @@ require(src + 'node.js')(yargs);
 /* wifi */
 require(src + 'wifi.js')(yargs);
 
+/* ls */
+require(src + 'ls.js')(yargs);
 
+/* remove */
+require(src + 'remove.js')(yargs);
+
+/* status */
+require(src + 'status.js')(yargs);
+
+/* restart */
+require(src + 'restart.js')(yargs);
+
+/* compile */
+require(src + 'compile.js')(yargs);
+
+/* publish */
+require(src + 'publish.js')(yargs);
 
 /* version */
 require(src + 'version.js')(yargs);

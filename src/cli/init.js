@@ -8,7 +8,7 @@ module.exports = (yargs) => {
       return yargs
       .option('director', {
         alias: 'd',
-        default: 'http://127.0.0.1:3000/',
+        default: 'http://192.168.3.100:3000/',
         type: 'string',
         describe: 'director URL'
       })
@@ -50,6 +50,7 @@ module.exports = (yargs) => {
               nodes: {},
               wifi: []
            }, null, 2));
+           fs.writeFileSync(dir + '/.wiot/.gitignore', 'cache/\n\rcompiled_files/', 'utf-8');
            ban.succeed('Initiate successfully!!');
         });
     })

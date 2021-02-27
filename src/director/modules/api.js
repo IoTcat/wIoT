@@ -24,7 +24,6 @@ function isJson(str) {
         return false;
     }
 
-
 	app.get('/status', (req, res) => {
 		if(!req.query.hasOwnProperty('query')){
 			res.status(500).send();

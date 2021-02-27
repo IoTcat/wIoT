@@ -16,6 +16,9 @@ module.exports = () => {
                 fs.mkdirSync(path + '.wiot/cache');
                 fs.writeFileSync(path + '.wiot/cache/.gitignore', '*', 'utf-8');
             }
+            if(fs.readdirSync(path + '.wiot').indexOf('compiled_files') == -1){
+                fs.mkdirSync(path + '.wiot/compiled_files');
+            }
 
     		let config = JSON.parse(fs.readFileSync(path + 'config.json'));
     		config.root = path;

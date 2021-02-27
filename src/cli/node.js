@@ -18,14 +18,16 @@ module.exports = (yargs) => {
             let config = require(__dirname + '/modules/getConfig.js')();
             if(!config) return;
 
+            let nid = o.nidGen();
+
             if(!config.wifi[argv.wifiIndex]){
                 error('Invalid WiFi index '+argv.wifiIndex+'!\nSee "'+argv.$0+' wifi ls" to find a wifi index.');
                 return;
             }
 
-            ban = new ora(`Preparing ${argv.NodeName}...0%`).start();
+            ban = new ora(`Preparing ${nid}...0%`).start();
             await reset(argv.port);
-            ban.info('Preparing '+argv.NodeName+'...10%');
+            ban.info('Preparing '+nid+'...10%');
             if(argv.config){
 
                 Object.keys(config.nodes).forEach(nid => {
@@ -35,7 +37,6 @@ module.exports = (yargs) => {
                     }
                 })
 
-                let nid = o.nidGen();
                 config.nodes[nid] = {
                     nickname: argv.nickname,
                     msgport: argv.msgport,
@@ -53,22 +54,29 @@ module.exports = (yargs) => {
                         port: config.nodes[nid].msgport
                     },
                     director: {
-                        ip: '192.168.3.100',
-                        port: 6789,
+                        hostname: argv.directorHost,
+                        port: argv.directorPort,
                         HeartbeatInterval: argv.heartbeat
                     }
                 }
                 fs.writeFileSync(config_path, JSON.stringify(config_obj), 'utf-8');
                 await upload(argv.port, config_path);
             }
-            ban.info('Preparing '+argv.NodeName+'...30%');
+            ban.info('Preparing '+nid+'...30%');
             if(argv.img) await upload(argv.port, __dirname+'/../drivers/nodemcu/lua/lfs.img');
-            ban.info('Preparing '+argv.NodeName+'...60%');
+            ban.info('Preparing '+nid+'...60%');
             if(argv.lua) await upload(argv.port, __dirname+'/../drivers/nodemcu/lua/init.lua');
-            ban.info('Preparing '+argv.NodeName+'...70%');
+            ban.info('Preparing '+nid+'...70%');
             await reset(argv.port);
-            ban.info('Preparing '+argv.NodeName+'...100%');
-            ban.succeed(argv.NodeName+' on '+argv.port+' is ready for online!!');
+            ban.info('Preparing '+nid+'...100%');
+            ban.succeed(nid+' on '+argv.port+' is ready for online!!');
+            let table = new Table({
+                head: ['nid', 'nickname', 'msgport', 'wifiIndex']
+            });
+
+            table.push([nid, config.nodes[nid].nickname, config.nodes[nid].msgport, config.nodes[nid].wifiIndex])
+
+            console.log(table.toString());
             resolve()
         }),
         terminal: async (argv) => new Promise(async resolve => {
@@ -86,6 +94,7 @@ module.exports = (yargs) => {
 	const terminal = require(__dirname + '/modules/terminal.js');
 	const reset = require(__dirname + '/modules/reset.js');
     const error = require(__dirname + '/modules/error.js');
+    const Table = require('cli-table');
 
 	yargs = yargs
 
@@ -110,6 +119,8 @@ module.exports = (yargs) => {
         })
 
         .command('init <port>', "flash and prepare a NodeMCU device..", yargs => {
+            let config = require(__dirname + '/modules/getConfig.js')();
+            if(!config) return;
             return yargs
             .option('nickname', {
                 alias: 'n',
@@ -133,6 +144,16 @@ module.exports = (yargs) => {
                 default: 10000,
                 type: 'number',
                 describe: 'heartbeat interval'
+            })
+            .option('directorHost', {
+                default: require('url').parse(config.director).hostname,
+                type: 'string',
+                describe: 'director hostname'
+            })
+            .option('directorPort', {
+                default: 6789,
+                type: 'number',
+                describe: 'director MSG port'
             })
             .option('lua', {
                 alias: 'l',
@@ -173,6 +194,8 @@ module.exports = (yargs) => {
         })
 
         .command('prepare <port>', "prepare wIoT system environment on the NodeMCU", yargs => {
+            let config = require(__dirname + '/modules/getConfig.js')();
+            if(!config) return;
             return yargs
             .option('nickname', {
                 alias: 'n',
@@ -197,6 +220,16 @@ module.exports = (yargs) => {
                 default: 10000,
                 type: 'number',
                 describe: 'heartbeat interval'
+            })
+            .option('directorHost', {
+                default: require('url').parse(config.director).hostname,
+                type: 'string',
+                describe: 'director hostname'
+            })
+            .option('directorPort', {
+                default: 6789,
+                type: 'number',
+                describe: 'director MSG port'
             })
             .option('lua', {
                 alias: 'l',

@@ -1,184 +1,215 @@
-module.exports = () => {
-	let o = {
-		device: {
-			nodemcu: id => {
+const md5 = (str) => {
+	let hash = require('crypto').createHash('sha256');
+	hash.update(str.toString());
+	return hash.digest('hex');
+}
 
-				let service = {};
 
-				let act = {
-					clear: () => new Promise(async resolve => {
-						let res = await send(id, 'clear', '');
-						if(res.status){
-							resolve(true);
-						}else{
-							resolve(false);
+const reg = (() => {
+	let cnt = 0;
+	return () => {
+		let div = ++cnt,
+			rem = 0; 
+		let s = '';
+		while(div > 0){
+			rem = Math.floor(div%26);
+			div = parseInt(div/26);
+			s += String.fromCharCode(rem + 97);
+		}
+		return s;
+	}
+})();
+const fs = require('fs');
+let config = require(__dirname + '/modules/getConfig.js')();
+if(!config) return;
+
+
+const wiot = {
+	INPUT: 'gpio.INPUT',
+	OUTPUT: 'gpio.OUTPUT',
+	CLOCK_INTERVAL: 100,
+	__: {
+
+	},
+	node: {
+		nodemcu: function(nid){
+			wiot.__[nid] = {
+				reg: {},
+				head: [],
+				body: [],
+				loop: [],
+				footer: []
+			}
+			return {
+				D1: 1,
+				D2: 2,
+				D3: 3,
+				D4: 4,
+				D5: 5,
+				D6: 6,
+				D7: 7,
+				D8: 8,
+				nid: nid
+			}
+		}
+	},
+	udp: {
+		gpio: function(mode, pin, wire, node, default_output = 1){
+			let o = {
+				udp: 'pin',
+				node: node,
+				mode, mode,
+				pin: pin
+			};
+			wiot.__[node.nid].head.push(`gpio.mode(${pin},${mode});`);
+			if(mode == wiot.INPUT){
+				wiot.__[node.nid].loop.push(`${wire.id}=gpio.read(${pin});`);
+				o.output = wire;
+				wire.input.push(o);
+			}
+			if(mode == wiot.OUTPUT){
+				if(Object.keys(wiot.__[node.nid].reg).indexOf(wire.id) == -1) wiot.__[node.nid].reg[wire.id] = {
+					default: 0,
+					trigger: []
+				};
+				wiot.__[node.nid].reg[wire.id].default = default_output;
+				wiot.__[node.nid].reg[wire.id].trigger.push(`gpio.write(${pin},${wire.id});`);
+				o.input = wire;
+				wire.output.push(o);
+			}
+			wire.generate(wire);
+			sync();
+			return o;
+		},
+		trigger: (wire, node) => {
+
+		},
+		wire: function(){
+			let id = reg();
+			return {
+				upd: 'wire',
+				id: id,
+				input: [],
+				output: [],
+				generate: (wire) => {
+					let nodes_input = [],
+						nodes_output = [];
+
+					wire.input.forEach(udp => {
+						if(nodes_input.indexOf(udp.node) == -1){
+							nodes_input.push(udp.node);
 						}
-					}),
-					refresh: () => new Promise(async resolve => {
-						let res = await send(id, 'refresh', '');
-						if(res.status){
-							resolve(true);
-						}else{
-							resolve(false);
+					});
+
+					wire.output.forEach(udp => {
+						if(nodes_output.indexOf(udp.node) == -1){
+							nodes_output.push(udp.node);
 						}
-					}),
-					getConstruct: () => {
-						let s = '';
-						for(let fid in service){
-							if(service[fid].hasOwnProperty('construct') && service[fid].construct){
-								s += service[fid].construct;
-								s += ' ';
-							}
-						}
-						s += '';
-						return s;
-					},
-					getDestruct: () => {
-						let s = '';
-						for(let fid in service){
-							if(service[fid].hasOwnProperty('destruct') && service[fid].destruct){
-								s += service[fid].destruct;
-								s += ' ';
-							}
-						}
-						s += '';
-						return s;
-					},
-					getMainTbl: () => {
-						let tbl = {};
-						for(let fid in service){
-							if(service[fid].hasOwnProperty('main') && service[fid].main){
-								tbl[fid] = service[fid].main;
-							}
-						}
-						return tbl;
-					}
+					});
+
+
+					wiot.udp.channel(wire, nodes_input, nodes_output);
 				}
-
-
-				let o = {
-					id: id,
-					pin: {
-						D0: 0,
-						D1: 1,
-						D2: 2,
-						D3: 3,
-						D4: 4,
-						D5: 5,
-						D6: 6,
-						D7: 7,
-						D8: 8,
-						A0: 0
-					},
-					service: {
-						add: (fid, main, construct, destruct) => {
-							service[fid] = {};
-							service[fid].main = main;
-							service[fid].construct = construct || '';
-							service[fid].destruct = destruct || '';
-						},
-						del : (fid) => {
-							if(service.hasOwnProperty(fid)){
-								delete service[fid];
-							}
-						},
-						clear: () => {
-							service = {}
-						},
-						list: () => service,
-						push: () => new Promise(async (resolve, reject) => {
-							let construct = act.getConstruct();
-							let destruct = act.getDestruct();
-							let mainTbl = act.getMainTbl();
-
-							await act.clear();
-
-							await push(id, 'construct', construct);
-
-							await push(id, 'destruct', destruct);
-
-							for(let fid in mainTbl){
-								await push(id, fid, mainTbl[fid]);
-							}
-
-							await act.refresh();
-
-							let res = await send(id, 'list', '');
-
-							let flag = Object.keys(mainTbl).every(val => Object.keys(res).indexOf(val) != -1)
-
-							resolve(flag);
-
-						})
-					}
-				}
-
-				return o;
-
 			}
 		},
-		module: {
-			led: (dev, pin) => {
-				let o = {
-					breath: (val) => {
-						if(typeof val == "number") dev.service.add('led', ``, `pwm.setup(${pin}, 100, 512);pwm.start(${pin});local n = 0; timer = tmr.create(); timer:register(10, tmr.ALARM_AUTO, function() pwm.setduty(${pin}, math.abs((n*${Math.floor(1024*2*10/val)})%(1022*2) - 1023)); n = n + 1; end);timer:start();`, `timer:unregister();timer = nil;pwm.close(${pin})`);
-						if(typeof val == "object") {
-							dev.service.add('led', `function(s) G.val = s; end`, `G.val = 2;pwm.setup(${pin}, 100, 512);pwm.start(${pin});local n = 0; timer = tmr.create(); timer:register(10, tmr.ALARM_AUTO, function() pwm.setduty(${pin}, math.abs((n*G.val)%(1022*2) - 1023)); n = n + 1; end);timer:start();`, `timer:unregister();timer = nil;pwm.close(${pin})`);
-							val.reg('192.168.3.225', '5678', 'led')
-						}
-						//dev.service.add('led'+val, '', `print("cons")`, `print("dest")`);
-					}
-				}
-				return o;
-			},
-			sensor: (dev, pin) => {
-				let o = {
-					reg: (ip, port, fip) => {
-						dev.service.add('sensor', '', `local fVal = false; timer = tmr.create(); timer:alarm(300, tmr.ALARM_AUTO, function() local v = adc.read(0) if not (v > 400) == fVal then fVal=(v>400); print(v); if v> 400 then w.send('${ip}', ${port}, '${fip}', 15) else w.send('${ip}', ${port}, '${fip}', 5) end end end);`, `timer:unregister();timer = nil;pwm.close(${pin})`);
-					}
-				}
-				return o;
-			}
+		channel: (wire, nodes_input, nodes_output) => {
+			if(nodes_input.length == 1 && nodes_output.length == 1 && nodes_input[0] == nodes_output[0]) return;
+			nodes_output.forEach(node_output => {
+				let s = `msg.onSend('${wire.id}',function(_f,_b) ${wire.id}=_b; end);`;
+				wiot.__[node_output.nid].footer.push(s);
+				if(Object.keys(wiot.__[node_output.nid].reg).indexOf(wire.id) == -1) wiot.__[node_output.nid].reg[wire.id] = {
+					default: 0,
+					trigger: []
+				};
+			});
+
+			nodes_input.forEach(node_input => {
+
+				if(Object.keys(wiot.__[node_input.nid].reg).indexOf(wire.id) == -1) wiot.__[node_input.nid].reg[wire.id] = {
+					default: 0,
+					trigger: []
+				};
+				nodes_output.forEach(node_output => {
+					if(node_input == node_output) return;
+					let s2 = `msg.send('${node_output.nid}','${wire.id}',${wire.id});`;
+					wiot.__[node_input.nid].reg[wire.id].trigger.push(s2);
+				})
+			});
+
+		},
+		delay: function(wire_input, wire_output, delay_s, node){
+			let o = {
+				udp: 'delay',
+				node: node,
+				delay_s: delay_s,
+				input: wire_input,
+				output: wire_output
+			};
+			let cnt = reg();
+			if(Object.keys(wiot.__[node.nid].reg).indexOf(cnt) == -1) wiot.__[node.nid].reg[cnt] = {
+				default: 0,
+				trigger: []
+			};
+			wiot.__[node.nid].reg[cnt].default = 0;
+			if(Object.keys(wiot.__[node.nid].reg).indexOf(o.input.id) == -1) wiot.__[node.nid].reg[o.input.id] = {
+				default: 0,
+				trigger: []
+			};
+			wiot.__[node.nid].reg[o.input.id].trigger.push(`${cnt}=${Math.round(delay_s*1000/wiot.CLOCK_INTERVAL)+1};`);
+			wiot.__[node.nid].loop.push(`if not (${cnt}==0) then ${cnt}=${cnt}-1;end;`);
+			wiot.__[node.nid].loop.push(`if ${cnt}==1 then ${o.output.id}=${o.input.id};end;`);
+			wire_input.output.push(o);
+			wire_output.input.push(o);
+
+
+			wire_input.generate(wire_input);
+			wire_output.generate(wire_output);
+			sync();
+			return o;
 		}
 	}
-
-
-	const request = require('request');
-
-
-	let send = (id, fid, body) => new Promise((resolve, reject) => {
-		request(`http://127.0.0.1:8081/?id=${id}&fid=${fid}&body=${new Buffer(JSON.stringify([body])).toString('base64')}`, (err, req, res) => {
-			console.log('Sent '+fid +' to '+id)
-			if(typeof res == "string"){
-				try{
-					res = JSON.parse(res)
-				}catch(e){
-
-				}
-			}
-			if(err){
-				resolve(false)
-			}else{
-				console.log(res)
-				if(!res.status){
-					resolve(false);
-				}else{
-					resolve(res.data)
-				}
-			}
-		});
-	});
-
-	let push = (id, fid, body) => new Promise(async resolve => {
-		let obj = {
-			"hash": fid,
-			"func": body
-		}
-		console.log(obj)
-		let res = await send(id, 'push', obj);
-		resolve(res);
-	})
-
-
-	return o;
 }
+
+
+function sync(){
+
+	Object.keys(wiot.__).forEach(nid => {
+	    let s = '';
+	    let seg = wiot.__[nid];
+
+	    seg.head = [...new Set(seg.head)];
+	    seg.body = [...new Set(seg.body)];
+	    seg.loop = [...new Set(seg.loop)];
+	    seg.footer = [...new Set(seg.footer)];
+
+	    seg.head.forEach(item => s += item);
+	    Object.keys(seg.reg).forEach(item =>{
+	    	seg.reg[item].trigger = [...new Set(seg.reg[item].trigger)];
+			if(seg.reg[item].trigger.length) s += `${item},f_${item}=${seg.reg[item].default},${seg.reg[item].default};`
+			else s += `${item}=${seg.reg[item].default};`
+	    });
+	    seg.body.forEach(item=> s += item);
+
+	    s += 'tmr.create():alarm('+wiot.CLOCK_INTERVAL+', tmr.ALARM_AUTO, function()';
+
+	    Object.keys(seg.reg).forEach(item =>{
+	    	if(seg.reg[item].trigger.length){
+	    		s += `if not (f_${item}==${item}) then `
+	    		seg.reg[item].trigger.forEach(funcs=>{
+	    			s += `${funcs}`;
+	    		});
+	    		s += ` end;`;
+	    		s += `f_${item}=${item};`
+	    	}
+	    });
+
+	    seg.loop.forEach(item => s += item);
+	    s += ' end);';
+	    seg.footer.forEach(item => s += item);
+
+	    fs.writeFileSync(config.root+'.wiot/compiled_files/'+nid, s);
+
+	});
+}
+
+module.exports = wiot;
