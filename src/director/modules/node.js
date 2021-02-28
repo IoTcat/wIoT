@@ -186,6 +186,7 @@ module.exports = (logger, nodetable) => {
 				await delay(CMD_DELAY);
 
 				event.info('[CMD]', '<'+nid+'>', '__checkNS', id);
+				resolve();
 
 			}),
 			setFunc: (id, func) => new Promise(async resolve => {

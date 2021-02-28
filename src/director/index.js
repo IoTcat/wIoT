@@ -33,7 +33,8 @@ setInterval(async ()=>{
 	});
 
 	if(online.some(nid => OnlineBoard.indexOf(nid) == -1)){
-		await ns.set(await ns.get(online, {
+		OnlineBoard = online;
+		await ns.set(await ns.get(online/*, {
 		'good': {
 			'good3': {
 				port: 22,
@@ -46,13 +47,12 @@ setInterval(async ()=>{
 				ip: '111.222.333.44'
 			}
 		},
-	}))
+	}*/))
 	}
 
 
-	OnlineBoard = online;
 
-},10000)
+},15000)
 
 
 

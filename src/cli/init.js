@@ -8,7 +8,7 @@ module.exports = (yargs) => {
       return yargs
       .option('director', {
         alias: 'd',
-        default: 'http://192.168.3.100:3000/',
+        default: 'http://192.168.3.100:3001/',
         type: 'string',
         describe: 'director URL'
       })

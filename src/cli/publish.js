@@ -38,10 +38,11 @@ module.exports = (yargs) => {
 
             Object.keys(config.nodes).forEach(async nid => {
                 let ban = new ora(`${nid}: publish...`).start();
-                let funcID = 'default', s = '';
+                let funcID = 'default', s = '', size = 0;
                 if(fs.existsSync(dir+nid)) {
                     s = fs.readFileSync(dir+nid, 'utf-8');
                     funcID = md5(s).substring(0, 5);
+                    size = fs.lstatSync(dir+nid).size;
                 }
                 let res = null;
                 try{
@@ -63,7 +64,7 @@ module.exports = (yargs) => {
                     return;
                 }
 
-                ban.succeed(`${nid}: finished  FuncID: ${funcID}`.green);
+                ban.succeed(`${nid}: finished  FuncID: ${funcID}  Size:${size}`.green);
 
             });
 

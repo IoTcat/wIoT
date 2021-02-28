@@ -47,10 +47,16 @@ module.exports = (argv) => {
 
         Object.keys(config.nodes).forEach(async nid => {
             let ban = new ora(`${nid}: compileing...`).start();
-            let funcID;
-            if(fs.existsSync(dir+nid)) funcID = md5(fs.readFileSync(dir+nid, 'utf-8')).substring(0, 5);
-            else funcID = 'default';
-            ban.succeed(`${nid}: ok.  FuncID:${funcID}`.green);
+            let funcID, size;
+            if(fs.existsSync(dir+nid)) {
+            	funcID = md5(fs.readFileSync(dir+nid, 'utf-8')).substring(0, 5);
+            	size = fs.lstatSync(dir+nid).size;
+            }
+            else {
+            	funcID = 'default';
+            	size = 0;
+            }
+            ban.succeed(`${nid}: ok.  FuncID:${funcID}  Size:${size}`.green);
         });
 
 }

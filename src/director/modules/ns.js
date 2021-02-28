@@ -27,14 +27,14 @@ module.exports = (logger, node, nodetable) => {
 
 			let nsList = {};
 			let beginTime = new Date().valueOf();
-			list.forEach(nid1 => {
-				list.forEach(async nid2 => {
+			for(nid1 of list){
+				for(nid2 of list){
 					if(nid1 != nid2){
 						log.info('[CHECK]', nid2, '-->', nid1);
 						await node[nid2].checkNS(nid1, refer && refer[nid2] && refer[nid2][nid1] && refer[nid2][nid1].ip || node[nid1].info.localip, refer && refer[nid2] && refer[nid2][nid1] && refer[nid2][nid1].port || node[nid1].info.localport)
 					}
-				})
-			});
+				}
+			};
 
 			await delay(NS_DELAY);
 

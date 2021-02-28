@@ -11,6 +11,7 @@ __main = coroutine.create(function(__run)
 	local DB_PREFIX = '__data/';
 	local SWAP_PREFIX = '__system/swap/';
 	local SIGNAL_LED = 0;
+	local UDP_INTERVAL = 10;
 
 --For Debug Purpose
 --collectgarbage("collect")
@@ -310,6 +311,35 @@ __main = coroutine.create(function(__run)
 	--create a udp server
 	local udpd = net.createUDPSocket();
 	udpd:listen(config.msg.port);
+	--Set the socket status variable to false as a signal of disconnect
+	local usocket = {
+		queue = {},
+		lock = false,
+		timer = tmr.create()
+	};
+	local usocket_sent = function()
+		udpd:send(usocket.queue[1].port, usocket.queue[1].ip, usocket.queue[1].str);
+		table.remove(usocket.queue, 1);
+		if #usocket.queue > 0 then
+			usocket.timer:start();
+		else
+			usocket.lock = false;
+		end
+	end
+	usocket.timer:register(UDP_INTERVAL, tmr.ALARM_SEMI, usocket_sent);
+	--Send message in queue
+	function usocket:send(port, ip, str)
+		table.insert(usocket.queue, {
+			port = port,
+			ip = ip,
+			str = str
+		});
+		if #usocket.queue > 0 and usocket.lock == false then
+			usocket.lock = true;
+			usocket.timer:start();
+		end
+	end
+
 	--when message comming
 	udpd:on('receive', function(socket, data, port, ip)
 		--send message to msg register
@@ -438,7 +468,7 @@ __main = coroutine.create(function(__run)
 				end
 			end
 			--if have ns record, send via udp to target device directly
-			udpd:send(port_ip.port, port_ip.ip, package);
+			usocket:send(port_ip.port, port_ip.ip, package);
 			return true;
 		end,
 		onSend = function(name, method)
