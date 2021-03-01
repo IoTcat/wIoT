@@ -162,8 +162,10 @@ function isJson(str) {
 
 			if(data.to != 'director'){
 				if(nidtable.hasOwnProperty(data.to)){
-					nidtable[data.to].socket.write(JSON.stringify(data));
-					flow.log('[FORWARD]', data.to+'<--'+data.from, data.name, data.body);
+					try{
+						nidtable[data.to].socket.write(JSON.stringify(data));
+						flow.log('[FORWARD]', data.to+'<--'+data.from, data.name, data.body);
+					}catch(e){console.error(e)}
 				}else{
 					flow.error('[FORWARD]', '<nid lookup failure>', data.to+'<--'+data.from, data.name, data.body);
 				}
@@ -189,6 +191,7 @@ function isJson(str) {
 		socket.setTimeout(60 * 1000);
 		socket.on('timeout', () => {
 		  access.info(nid, socket.remoteAddress+':'+socket.remotePort, '[TIMEOUT]', 'After', socket.timeout, 'ms');
+			try{
 			nidtable[nid].socket = null;
 			nidtable[nid].ip = null;
 			nidtable[nid].port = null;
@@ -197,6 +200,9 @@ function isJson(str) {
 			cbArr.disconnect.forEach(cb => {
 				cb(nid, nidtable[nid]);
 			});
+			}catch(e){
+				delete nidtable[nid];
+			}
 
 		  socket.destroy();
 		});

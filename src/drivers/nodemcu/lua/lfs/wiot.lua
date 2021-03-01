@@ -585,6 +585,7 @@ __main = coroutine.create(function(__run)
 						ns[k] = v;
 					end
 				end
+				db.clear();
 				--restart the system to run new Func
 				node.restart();
 			end
@@ -592,6 +593,12 @@ __main = coroutine.create(function(__run)
 	end);
 	--restart API
 	msgReg['__restart'] = function(from, body)
+		if from == 'director' then
+			node.restart();
+		end
+	end
+	--restart API
+	msgReg['__reset'] = function(from, body)
 		if from == 'director' then
 			node.restart();
 		end

@@ -20,6 +20,20 @@ module.exports = (yargs) => {
 
             let nid = o.nidGen();
 
+            if(argv.nid){
+                nid = nidMatch(argv.nid);
+                if(!nid || !nid.length){
+                    error('No node selected! \nPlease use "'+argv.$0+' ls" to check the nid.');
+                    return;
+                }
+                if(nid.length > 1){
+                    error('Found multiple nodes. Which one do you want?');
+                    return;
+                }
+                nid = nid[0];
+            }
+
+
             if(!config.wifi[argv.wifiIndex]){
                 error('Invalid WiFi index '+argv.wifiIndex+'!\nSee "'+argv.$0+' wifi ls" to find a wifi index.');
                 return;
@@ -29,23 +43,23 @@ module.exports = (yargs) => {
             await reset(argv.port);
             ban.info('Preparing '+nid+'...10%');
             if(argv.config){
+                if(!argv.nid){
+                    Object.keys(config.nodes).forEach(nid => {
+                        if(config.nodes[nid].nickname == argv.nickname){
+                            error('Nickname "'+argv.nickname+'"" has already been used by '+nid);
+                            throw null;
+                        }
+                    })
 
-                Object.keys(config.nodes).forEach(nid => {
-                    if(config.nodes[nid].nickname == argv.nickname){
-                        error('Nickname "'+argv.nickname+'"" has already been used by '+nid);
-                        throw null;
+                    config.nodes[nid] = {
+                        nickname: argv.nickname,
+                        msgport: argv.msgport,
+                        wifiIndex: argv.wifiIndex
                     }
-                })
-
-                config.nodes[nid] = {
-                    nickname: argv.nickname,
-                    msgport: argv.msgport,
-                    wifiIndex: argv.wifiIndex
+                    let raw_config = JSON.parse(fs.readFileSync(config.root + 'config.json', 'utf-8'));
+                    raw_config.nodes = config.nodes;
+                    fs.writeFileSync(config.root + 'config.json', JSON.stringify(raw_config, null, 2), 'utf-8');
                 }
-                let raw_config = JSON.parse(fs.readFileSync(config.root + 'config.json', 'utf-8'));
-                raw_config.nodes = config.nodes;
-                fs.writeFileSync(config.root + 'config.json', JSON.stringify(raw_config, null, 2), 'utf-8');
-
                 let config_path = config.root + '.wiot/cache/config.json';
                 let config_obj = {
                     nid: nid,
@@ -95,7 +109,7 @@ module.exports = (yargs) => {
 	const reset = require(__dirname + '/modules/reset.js');
     const error = require(__dirname + '/modules/error.js');
     const Table = require('cli-table');
-
+    const nidMatch = require(__dirname + '/modules/nidMatch.js');
 	yargs = yargs
 
 
@@ -173,6 +187,10 @@ module.exports = (yargs) => {
                 type: 'boolean',
                 describe: 'update config.json'
             })
+            .option('nid', {
+                type: 'string',
+                describe: 'update existed node firmware'
+            })
             .example([
                 ['$0 node init COM3 -n firstnode', 'flash and prepare the NodeMCU device on COM3 and name it as "firstnode"']
             ])
@@ -249,6 +267,10 @@ module.exports = (yargs) => {
                 type: 'boolean',
                 describe: 'update config.json'
             })
+            .option('nid', {
+                type: 'string',
+                describe: 'update existed node firmware'
+            })
             .example([
                 ['$0 node prepare COM3 -n firstnode', 'prepare the NodeMCU device on COM3 and name it as "firstnode"']
             ])
@@ -265,6 +287,63 @@ module.exports = (yargs) => {
         }, async argv => {
             await o.check(argv);
             await o.terminal(argv);
+        })
+        .command('update <port> [nid]', "update wIoT system environment on the NodeMCU", yargs => {
+            let config = require(__dirname + '/modules/getConfig.js')();
+            if(!config) return;
+            return yargs
+            .option('wifiIndex', {
+                alias: 'w',
+                default: 0,
+                type: 'number',
+                describe: 'determine which wifi config to use'
+            })
+            .option('msgport', {
+                alias: 'm',
+                default: 6789,
+                type: 'number',
+                describe: 'udp port on NodeMCU for MSG communication'
+            })
+            .option('heartbeat', {
+                default: 10000,
+                type: 'number',
+                describe: 'heartbeat interval'
+            })
+            .option('directorHost', {
+                default: require('url').parse(config.director).hostname,
+                type: 'string',
+                describe: 'director hostname'
+            })
+            .option('directorPort', {
+                default: 6789,
+                type: 'number',
+                describe: 'director MSG port'
+            })
+            .option('lua', {
+                alias: 'l',
+                default: true,
+                type: 'boolean',
+                describe: 'update init.lua'
+            })
+            .option('img', {
+                alias: 'i',
+                default: true,
+                type: 'boolean',
+                describe: 'update lfs.img'
+            })
+            .option('config', {
+                alias: 'c',
+                default: true,
+                type: 'boolean',
+                describe: 'update config.json'
+            })
+            .example([
+                ['$0 node prepare COM3 -n firstnode', 'prepare the NodeMCU device on COM3 and name it as "firstnode"']
+            ])
+        }, async argv => {
+            if(!argv.nid) argv.config = false;
+            await o.check(argv);
+            await o.upload(argv);
         })
 
         
