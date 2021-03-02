@@ -80,7 +80,88 @@ const sync = sync => {
 	});
 }
 
+const channel = (wire) => {
 
+	nodes_output = wire.output.map(udp=>udp.node);
+	nodes_output = uniqueArr(nodes_output);
+	nodes_input = wire.input.map(udp=>udp.node);
+	nodes_input = uniqueArr(nodes_input);
+
+	if(nodes_input.length == 1 && nodes_output.length == 1 && nodes_input[0] == nodes_output[0]) return;
+	if(nodes_input.length == 1 && nodes_output.length == 0) return;
+	if(nodes_input.length == 0 && nodes_output.length == 1) return;
+
+	nodes_output.forEach(node_output => {
+		node_output.footer.push(node_output.MSGonSend(wire.reg, `${wire.reg}=body;FR${wire.reg}=from;`));
+	});
+
+	 //console.log(nodes_input.map(d=>d.regs[wire.reg].trigger))
+
+	nodes_input.forEach(node_input => {
+		node_input.unique();
+		nodes_output.forEach(node_output => {
+			//if(node_input == node_output) return;
+			node_output.unique();
+			let arr = node_input.regs[wire.reg].trigger;
+			let s2 = node_input.MSGSend(node_output.nid, wire.reg, wire.reg);
+			//console.log(arr)
+			//console.log(s2)
+			if(arr.indexOf(s2) !== -1) arr.splice(arr.indexOf(s2), 1);;
+			s2 =  `if not(FR${wire.reg}=='${node_output.nid}')then ${node_input.MSGSend(node_output.nid, wire.reg, wire.reg)}end;`;
+			if(arr.indexOf(s2) !== -1) arr.splice(arr.indexOf(s2), 1);
+			s2 = `FR${wire.reg}=nil;`;
+			if(arr.indexOf(s2) !== -1) arr.splice(arr.indexOf(s2), 1);
+			//console.log(arr)
+		})
+	});
+
+	 let io = nodes_input.filter(function(v){ return nodes_output.indexOf(v) > -1 });
+	 let i = nodes_input.filter(v=>io.indexOf(v) == -1);
+	 let o = nodes_output.filter(v=>io.indexOf(v) == -1);
+
+	 //console.log(nodes_input.map(d=>d.regs[wire.reg].trigger))
+
+	 if(!io.length){
+	 	if(!o.length) return;
+		 let pnt = 0;
+		 i.forEach(node => {
+		 	let s2 = node.MSGSend(o[pnt%o.length].nid, wire.reg, wire.reg);
+		 	node.trigger(wire, s2);
+		 	pnt++;
+		 });
+	 }else{
+		 let pnt = 0;
+		 i.forEach(node => {
+		 	let s2 = node.MSGSend(io[pnt%io.length].nid, wire.reg, wire.reg);
+		 	node.trigger(wire, s2);
+		 	pnt++;
+		 });
+
+		 pnt = 0;
+		 o.forEach(node=>{
+		 	let s2 = io[pnt%io.length].MSGSend(node.nid, wire.reg, wire.reg);
+		 	io[pnt%io.length].trigger(wire, s2);
+		 	pnt++;
+		 });
+		 pnt = 0;
+
+		 io.forEach((node,index)=>{
+		 	if(index){
+		 		let s2 = node.MSGSend(io[index-1].nid, wire.reg, wire.reg);
+		 		s2 = `if not(FR${wire.reg}=='${io[index-1].nid}')then ${s2}end;`
+		 		node.trigger(wire, s2);
+		 	}
+		 	if(index != io.length-1){
+		 		let s2 = node.MSGSend(io[index+1].nid, wire.reg, wire.reg);
+		 		s2 = `if not(FR${wire.reg}=='${io[index+1].nid}')then ${s2}end;`
+		 		node.trigger(wire, s2);
+		 	}
+		 	node.trigger(wire, `FR${wire.reg}=nil;`);
+		 });
+	 }
+
+//console.log(nodes_input.map(d=>d.regs[wire.reg].trigger))
+}
 
 const wiot = {
 	INPUT: 'gpio.INPUT',
@@ -113,114 +194,7 @@ const wiot = {
 		}
 	},
 	__systemPrimitive: {
-		wire: function(default_value = 0, isPersist = false){
-			let reg = Reg();
-			let wire = {
-				type: 'wire',
-				reg: reg,
-				default: default_value,
-				isPersist: isPersist,
-				input: [],
-				output: [],
-				generate: () => {
-					wire.input = uniqueArr(wire.input);
-					wire.output = uniqueArr(wire.output);
-					wire.input.forEach(udp => {
-						let node = udp.node;
-						node.setReg(reg, default_value, isPersist);
-					});
-					wire.output.forEach(udp => {
-						let node = udp.node;
-						node.setReg(reg, default_value, isPersist);
-					});
 
-					wiot.__systemPrimitive.channel(wire);
-				}
-			}
-			return wire;
-		},
-		channel: (wire) => {
-
-			nodes_output = wire.output.map(udp=>udp.node);
-			nodes_output = uniqueArr(nodes_output);
-			nodes_input = wire.input.map(udp=>udp.node);
-			nodes_input = uniqueArr(nodes_input);
-
-			if(nodes_input.length == 1 && nodes_output.length == 1 && nodes_input[0] == nodes_output[0]) return;
-			if(nodes_input.length == 1 && nodes_output.length == 0) return;
-			if(nodes_input.length == 0 && nodes_output.length == 1) return;
-
-			nodes_output.forEach(node_output => {
-				node_output.footer.push(node_output.MSGonSend(wire.reg, `${wire.reg}=body;FR${wire.reg}=from;`));
-			});
-
-			 //console.log(nodes_input.map(d=>d.regs[wire.reg].trigger))
-
-			nodes_input.forEach(node_input => {
-				node_input.unique();
-				nodes_output.forEach(node_output => {
-					//if(node_input == node_output) return;
-					node_output.unique();
-					let arr = node_input.regs[wire.reg].trigger;
-					let s2 = node_input.MSGSend(node_output.nid, wire.reg, wire.reg);
-					//console.log(arr)
-					//console.log(s2)
-					if(arr.indexOf(s2) !== -1) arr.splice(arr.indexOf(s2), 1);;
-					s2 =  `if not(FR${wire.reg}=='${node_output.nid}')then ${node_input.MSGSend(node_output.nid, wire.reg, wire.reg)}end;`;
-					if(arr.indexOf(s2) !== -1) arr.splice(arr.indexOf(s2), 1);
-					s2 = `FR${wire.reg}=nil;`;
-					if(arr.indexOf(s2) !== -1) arr.splice(arr.indexOf(s2), 1);
-					//console.log(arr)
-				})
-			});
-
-			 let io = nodes_input.filter(function(v){ return nodes_output.indexOf(v) > -1 });
-			 let i = nodes_input.filter(v=>io.indexOf(v) == -1);
-			 let o = nodes_output.filter(v=>io.indexOf(v) == -1);
-
-			 //console.log(nodes_input.map(d=>d.regs[wire.reg].trigger))
-
-			 if(!io.length){
-			 	if(!o.length) return;
-				 let pnt = 0;
-				 i.forEach(node => {
-				 	let s2 = node.MSGSend(o[pnt%o.length].nid, wire.reg, wire.reg);
-				 	node.trigger(wire, s2);
-				 	pnt++;
-				 });
-			 }else{
-				 let pnt = 0;
-				 i.forEach(node => {
-				 	let s2 = node.MSGSend(io[pnt%io.length].nid, wire.reg, wire.reg);
-				 	node.trigger(wire, s2);
-				 	pnt++;
-				 });
-
-				 pnt = 0;
-				 o.forEach(node=>{
-				 	let s2 = io[pnt%io.length].MSGSend(node.nid, wire.reg, wire.reg);
-				 	io[pnt%io.length].trigger(wire, s2);
-				 	pnt++;
-				 });
-				 pnt = 0;
-
-				 io.forEach((node,index)=>{
-				 	if(index){
-				 		let s2 = node.MSGSend(io[index-1].nid, wire.reg, wire.reg);
-				 		s2 = `if not(FR${wire.reg}=='${io[index-1].nid}')then ${s2}end;`
-				 		node.trigger(wire, s2);
-				 	}
-				 	if(index != io.length-1){
-				 		let s2 = node.MSGSend(io[index+1].nid, wire.reg, wire.reg);
-				 		s2 = `if not(FR${wire.reg}=='${io[index+1].nid}')then ${s2}end;`
-				 		node.trigger(wire, s2);
-				 	}
-				 	node.trigger(wire, `FR${wire.reg}=nil;`);
-				 });
-			 }
-
-//console.log(nodes_input.map(d=>d.regs[wire.reg].trigger))
-		}
 	},
 	__udpMethod: (node) => ({
 		trigger: function(wire, cmd){
@@ -285,12 +259,39 @@ const wiot = {
 		};
 		shortcut(wiot, wiot.udp)
 	},
-	udp: {}
+	newOperator: (type, genExpression) => {
+		wiot.operator[type] = genExpression;
+		shortcut(wiot, wiot.operator)
+	},
+	udp: {},
+	operator: {}
 }
 
 
 /* wire shortcut */
-wiot.wire = wiot.__systemPrimitive.wire;
+
+wiot.newUDP('wire', (default_value = 0, isPersist = false) => ({
+	reg: Reg(),
+	default: default_value,
+	isPersist: isPersist,
+	input: [],
+	output: []
+}), (o, method) => {
+	let wire = o;
+	o.generate = () => {
+		wire.input = uniqueArr(wire.input);
+		wire.output = uniqueArr(wire.output);
+		wire.input.forEach(udp => {
+			let node = udp.node;
+			node.setReg(o.reg, o.default, o.isPersist);
+		});
+		wire.output.forEach(udp => {
+			let node = udp.node;
+			node.setReg(o.reg, o.default, o.isPersist);
+		});
+		channel(wire);
+	}
+});
 
 
 
@@ -370,6 +371,19 @@ wiot.newUDP('adc', (wire_output, node) => ({
 }), (o, method) => {
 	let node = o.node;
 	node.always(`${o.output[0].reg}=adc.read(${o.pin});`);
+});
+
+
+wiot.newOperator('if', (condition, ifTrue, ifFalse) => {
+	return `((${condition})and{${ifTrue}}or{${ifFalse}})[1]`;
+});
+
+wiot.newOperator('strIndexOf', (str, segment) => {
+	return `string.find(${str},${segment})`;
+});
+
+wiot.newOperator('strSubStr', (str, pos, length) => {
+	return `string.sub(${str},${pos}${length?`,${length}`:``})`;
 });
 
 module.exports = wiot;
