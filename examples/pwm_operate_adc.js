@@ -31,6 +31,7 @@ let node1 = nodes[1];
 	//wiot.gpio(wiot.OUTPUT, node.D4, w, node);
 	//wiot.operate('math.floor($0/600)', node, w, w1);
 	wiot.operate('($0/2)+300', node, w, w1);
+	//wiot.operate(wiot.if(wiot.if(`$0<400`, false, true), 700, 0), node, w, w1);
 
 wiot.pwm(nodes[0].D4, w, new wiot.wire(500), nodes[0]);
 

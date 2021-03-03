@@ -188,17 +188,24 @@ const wiot = {
 				D7: 7,
 				D8: 8
 			}
-			wiot.__[nid].method = wiot.__udpMethod(wiot.__[nid]);
+			wiot.__[nid].method = wiot.__primitiveMethod(wiot.__[nid]);
 			shortcut(wiot.__[nid], wiot.__[nid].method);
 			return wiot.__[nid];
 		}
 	},
-	__systemPrimitive: {
-
-	},
-	__udpMethod: (node) => ({
+	__primitiveMethod: (node) => ({
 		trigger: function(wire, cmd){
-			node.regs[wire.reg].trigger.push(cmd);
+			if(Array.isArray(wire) && wire.length > 1){
+				let func = Reg();
+				node.setReg(func);
+				node.prepare(`${func}=function()${cmd}end;`);
+				wire.forEach(item=>{
+					node.regs[item.reg].trigger.push(`${func}();`);
+				});
+			}else{
+				if(Array.isArray(wire)) node.regs[wire[0].reg].trigger.push(cmd);
+				else node.regs[wire.reg].trigger.push(cmd);
+			}
 		},
 		unique: function(){
 		    node.head = uniqueArr(node.head);
@@ -234,13 +241,16 @@ const wiot = {
 		},
 		prepare: function(cmd){
 			node.body.push(cmd);
+		},
+		finale: function(cmd){
+			node.footer.push(cmd);
 		}
 	}),
 	__systemMethod: {
 		Reg: Reg
 	},
-	newUDP: (type, getObj, genCode) => {
-		wiot.udp[type] = function(){
+	newPrimitive: (type, getObj, genCode) => {
+		wiot.primitive[type] = function(){
 			let o =getObj(...arguments);
 			o.type = type;
 			o.__hash = md5(Math.random());
@@ -257,20 +267,20 @@ const wiot = {
 			sync();
 			return o;
 		};
-		shortcut(wiot, wiot.udp)
+		shortcut(wiot, wiot.primitive)
 	},
 	newOperator: (type, genExpression) => {
 		wiot.operator[type] = genExpression;
 		shortcut(wiot, wiot.operator)
 	},
-	udp: {},
+	primitive: {},
 	operator: {}
 }
 
 
 /* wire shortcut */
 
-wiot.newUDP('wire', (default_value = 0, isPersist = false) => ({
+wiot.newPrimitive('wire', (default_value = 0, isPersist = false) => ({
 	reg: Reg(),
 	default: default_value,
 	isPersist: isPersist,
@@ -296,7 +306,7 @@ wiot.newUDP('wire', (default_value = 0, isPersist = false) => ({
 
 
 /* pre-installed udp defination */
-wiot.newUDP('gpio', (mode, pin, wire, node) => ({
+wiot.newPrimitive('gpio', (mode, pin, wire, node) => ({
 	node: node,
 	pin: pin,
 	mode: mode,
@@ -314,7 +324,7 @@ wiot.newUDP('gpio', (mode, pin, wire, node) => ({
 });
 
 
-wiot.newUDP('buffer', (wire_output, wire_input, node, delay_s = 0) => ({
+wiot.newPrimitive('buffer', (wire_output, wire_input, node, delay_s = 0) => ({
 	node: node,
 	delay_s: delay_s,
 	input: [wire_input],
@@ -329,7 +339,7 @@ wiot.newUDP('buffer', (wire_output, wire_input, node, delay_s = 0) => ({
 });
 
 
-wiot.newUDP('operate', (expression, node, wire_output, ...wires_input) => ({
+wiot.newPrimitive('operate', (expression, node, wire_output, ...wires_input) => ({
 	node: node,
 	expression: expression,
 	input: wires_input,
@@ -340,18 +350,19 @@ wiot.newUDP('operate', (expression, node, wire_output, ...wires_input) => ({
 	o.input.forEach((wire, index) => {
 		s = s.replace(new RegExp('\\$'+index, 'g'), wire.reg);
 	});
-
-	let func = method.Reg();
-	node.setReg(func);
-
-	node.prepare(`${func}=function()${o.output[0].reg}=${s};end;`);
-	o.input.forEach(wire => {
-		node.trigger(wire, `${func}();`);
-	});
+	node.trigger(o.input, `${o.output[0].reg}=${s};`);
 });
 
+wiot.newPrimitive('print', (node, ...wires_input) => ({
+	node: node,
+	input: wires_input
+}), (o, method) => {
+	let node = o.node;
+	let s = `print(`;
+	node.trigger(o.input, `print(${o.input.map(wire=>wire.reg).join(',')});`);
+});
 
-wiot.newUDP('pwm', (pin, wire_duty, wire_clock, node) => ({
+wiot.newPrimitive('pwm', (pin, wire_duty, wire_clock, node) => ({
 	node: node,
 	pin: pin,
 	input: [wire_duty, wire_clock]
@@ -364,7 +375,7 @@ wiot.newUDP('pwm', (pin, wire_duty, wire_clock, node) => ({
 });
 
 
-wiot.newUDP('adc', (wire_output, node) => ({
+wiot.newPrimitive('adc', (wire_output, node) => ({
 	node: node,
 	pin: 0,
 	output: [wire_output]
@@ -373,11 +384,84 @@ wiot.newUDP('adc', (wire_output, node) => ({
 	node.always(`${o.output[0].reg}=adc.read(${o.pin});`);
 });
 
+wiot.newPrimitive('http', (wire_statusCode, wire_res, wire_url, node, wire_body = new wiot.wire(`''`), header = 'nil', method = 'GET') => ({
+	node: node,
+	header: header,
+	method: method,
+	output: [wire_statusCode, wire_res],
+	input: [wire_url, wire_body]
+}), (o, method) => {
+	let node = o.node;
+	node.trigger(o.input, `http.request(${o.input[0].reg},'${o.method}','${o.header}',${o.input[1].reg},function(c,d)${o.output[0].reg}=c;${o.output[1].reg}=d;end);`);
+});
+
+wiot.newPrimitive('redis', (wire_res, wire_send, node, host, channel, port = 6379) => ({
+	node: node,
+	host: host,
+	port: port,
+	channel: channel,
+	output: [wire_res],
+	input: [wire_send]
+}), (o, method) => {
+	let node = o.node;
+	let vpub = method.Reg(),
+		vsub = method.Reg();
+	node.setReg(vpub);
+	node.setReg(vsub);
+	node.prepare(`${vpub}=node.LFS.redis().connect('${o.host}',${o.port});`);
+	node.prepare(`${vsub}=node.LFS.redis().connect('${o.host}',${o.port});`);
+	node.finale(`${vsub}:subscribe('${o.channel}',function(c,m)${o.output[0].reg}=m;end);`);
+	node.trigger(o.input, `${vpub}:publish('${o.channel}',tostring(${o.input[0].reg}));`);
+});
+
+
+wiot.newPrimitive('udp', (wire_res_ip, wire_res_port, wire_res_data, wire_send_ip, wire_send_port, wire_send_data, node, localport = parseInt(Math.random()*20000)+10000) => ({
+	node: node,
+	localport: localport,
+	output: [wire_res_ip, wire_res_port, wire_res_data],
+	input: [wire_send_ip, wire_send_port, wire_send_data]
+}), (o, method) => {
+	let node = o.node;
+	let v = method.Reg()
+	node.setReg(v);
+
+	node.prepare(`${v}=net.createUDPSocket();`);
+	node.prepare(`${v}:listen(${o.localport});`);
+	node.trigger(o.input[2], `${v}:send(${o.input[1].reg},${o.input[0].reg},tostring(${o.input[2].reg}));`);
+	node.finale(`${v}:on('receive',function(s,d,p,i)${o.output[2].reg}=d;${o.output[1].reg}=p;${o.output[0].reg}=i;end);`);
+
+});
+
+
+wiot.newPrimitive('tcp', (wire_res_data, wire_send_data, node, host, port) => ({
+	node: node,
+	host: host,
+	port: port,
+	output: [wire_res_data],
+	input: [wire_send_data]
+}), (o, method) => {
+	let node = o.node;
+	let v = method.Reg()
+	let status = method.Reg();
+	node.setReg(v);
+	node.setReg(status, false);
+
+	node.prepare(`${v}=net.createConnection(net.TCP,0);`);
+	node.finale(`${v}:connect(${o.port},'${o.host}');`);
+	node.trigger(o.input[0], `if ${status} then ${v}:send(tostring(${o.input[0].reg}));end;`);
+	node.prepare(`${v}:on('receive',function(s,d)${o.output[0].reg}=d;end);`);
+	node.prepare(`${v}:on('connection',function()${status}=true;end);`);
+	node.prepare(`${v}:on('disconnection',function()${status}=false;tmr.create():alarm(1000,tmr.ALARM_SINGLE,function()${v}:connect(${o.port},'${o.host}');end);end);`);
+
+});
+
 
 wiot.newOperator('if', (condition, ifTrue, ifFalse) => {
 	return `((${condition})and{${ifTrue}}or{${ifFalse}})[1]`;
 });
 
+
+/*
 wiot.newOperator('strIndexOf', (str, segment) => {
 	return `string.find(${str},${segment})`;
 });
@@ -385,6 +469,8 @@ wiot.newOperator('strIndexOf', (str, segment) => {
 wiot.newOperator('strSubStr', (str, pos, length) => {
 	return `string.sub(${str},${pos}${length?`,${length}`:``})`;
 });
+*/
+
 
 module.exports = wiot;
 

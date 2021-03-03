@@ -284,14 +284,30 @@ __main = coroutine.create(function(__run)
 			end
 		end
 	});
+	--msgLongMsgReceive
+	local cache_longData = nil;
+	local cache_flag = nil;
 	--MSG Reg Method
 	msgReg_run = function(data) --(string incomingData) => nil
+		if string.sub(data, 1, 1) == '^' then
+			cache_flag = string.sub(data, 2, 2);
+			cache_longData = string.sub(data, 3);
+			return;
+		elseif string.sub(data, 1, 1) == '&' and string.sub(data, 2, 2) == cache_flag then
+			cache_longData = cache_longData..string.sub(data, 3);
+			return;
+		elseif string.sub(data, 1, 1) == '$' and string.sub(data, 2, 2) == cache_flag then
+			data = cache_longData..string.sub(data, 3);
+			cache_longData = nil;
+			cache_flag = nil;
+		end
+
 		--decode data
 		local data = pack.decode(data);
 		--check data
 		if type(data) ~= 'table' or type(data.from) ~= 'string' or type(data.name) ~= 'string' or data.to ~= config.nid then
 			return nil;
-		end;
+		end
 		--Search mached methods in MSG register
 		local method = msgReg[data.name];
 		if type(method) == 'function' then

@@ -24,7 +24,29 @@ module.exports = (logger, host = '0.0.0.0', port = 6789) => {
 				return false;
 			}
 			try{
-				nidtable[nid].socket.write(JSON.stringify(data));
+				let raw = JSON.stringify(data);
+				if(raw.length>1300){
+					let rawArr = [];
+					let flag = require('md5')(Math.random()).substring(0,1);
+					let n = 1300;
+					for (let i = 0; i < raw.length/n; i++) {
+						let prefix = '&';
+						if(i == 0){
+							prefix = '^';
+						}
+						if(i >= raw.length/n - 1){
+							prefix = '$';
+						}
+						setTimeout(()=>{
+							console.log(prefix + flag + raw.slice(n*i, n*(i+1)))
+							nidtable[nid].socket.write(prefix + flag + raw.slice(n*i, n*(i+1)));
+						}, i*2);
+					}
+
+					
+				}else{
+					nidtable[nid].socket.write(raw);
+				}
 				if(!isudp) nidtable[nid].status = false;
 			}catch(e){
 				flow.error('[OUTGOING]', '<nid lookup failure>', data.to+'<--'+data.from, data.name, data.body);
