@@ -2,7 +2,7 @@
 
 # wIoT <small>0.1</small>
 
-> A distributed IoT networking system basing on NodeJS
+> A distributed IoT operating system basing on NodeJS
 
 - Flexible deployment
 
