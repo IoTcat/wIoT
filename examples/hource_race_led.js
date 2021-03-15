@@ -20,7 +20,7 @@ nodes.forEach((node, index) => {
 		let w_delayed = new wiot.wire();
 		//implement a buffer module so only when signal in wire has changed and held
 		//for 0.2*index seconds, the w_delay will be updated with the value in the w
-		wiot.buffer(w_delayed/*output wire*/, w/*input wire*/, node, .2*index/*delay*/);
+		wiot.buffer(w_delayed/*output wire*/, w/*input wire*/, nodes[0], .2*index/*delay*/);
 		//create a gpio output module on D4 pin, controlled by the w_delayed virtual wire
 		//D4 is connected to an on-board LED on NodeMCU
 		wiot.gpio(wiot.OUTPUT, node.D4, w_delayed, node);

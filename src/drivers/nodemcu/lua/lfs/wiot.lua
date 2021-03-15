@@ -301,7 +301,7 @@ __main = coroutine.create(function(__run)
 			cache_longData = nil;
 			cache_flag = nil;
 		end
-
+	print(data);
 		--decode data
 		local data = pack.decode(data);
 		--check data

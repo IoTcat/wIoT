@@ -27,7 +27,7 @@ module.exports = (yargs) => {
 
         let nid = nidMatch(argv.nid);
         if(!nid || !nid.length){
-            error('No node selected! \nPlease use "'+argv.$0+' ls" to check the nid.');
+            error('No node selected! \nPlease use "wiot ls" to check the nid.');
             return;
         }
         if(nid.length > 1){

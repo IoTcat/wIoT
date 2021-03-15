@@ -23,7 +23,7 @@ module.exports = (yargs) => {
             if(argv.nid){
                 nid = nidMatch(argv.nid);
                 if(!nid || !nid.length){
-                    error('No node selected! \nPlease use "'+argv.$0+' ls" to check the nid.');
+                    error('No node selected! \nPlease use "wiot ls" to check the nid.');
                     return;
                 }
                 if(nid.length > 1){
@@ -35,7 +35,7 @@ module.exports = (yargs) => {
 
 
             if(!config.wifi[argv.wifiIndex]){
-                error('Invalid WiFi index '+argv.wifiIndex+'!\nSee "'+argv.$0+' wifi ls" to find a wifi index.');
+                error('Invalid WiFi index '+argv.wifiIndex+'!\nSee "wiot wifi ls" to find a wifi index.');
                 return;
             }
 
@@ -113,7 +113,7 @@ module.exports = (yargs) => {
 	yargs = yargs
 
 
-    .command('node', "operate NodeMCU devices connected on this computer. Use \""+yargs.$0+" node -h\" for more information. ", yargs => {
+    .command('node', "operate NodeMCU devices connected on this computer. Use \"wiot node -h\" for more information. ", yargs => {
         return yargs.
         example([
             ['$0 node search', 'search for all NodeMCUs connected to this computer']

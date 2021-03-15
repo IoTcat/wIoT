@@ -27,10 +27,11 @@ module.exports = (yargs) => {
 	yargs = yargs
 
 
-    .command('wifi', "set wifi configuration. Use \""+yargs.$0+" node -h\" for more information. ", yargs => {
+    .command('wifi', "set wifi configuration. Use \"wiot wifi -h\" for more information. ", yargs => {
         return yargs.
         example([
-            ['$0 node search', 'search for all NodeMCUs connected to this computer']
+            ['$0 wifi ls', 'List all wifi configuration'],
+            ['$0 wifi set --ssid=abc --pwd=123 --index=0', 'Set ssid and password of a wifi at index 0']
         ])
 
 

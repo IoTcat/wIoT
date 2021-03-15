@@ -1,14 +1,16 @@
 module.exports = (yargs) => {
 
     const ora = require('ora');
+    const { execFile, exec } = require('child_process');
     const fs = require('fs');
+    const root = __dirname + '/../../';
 
     yargs
     .command('init <ProjectName> [path]', "Create and initiate a new wIoT Project folder", yargs => {
       return yargs
       .option('director', {
         alias: 'd',
-        default: 'http://192.168.3.100:3001/',
+        default: 'https://wiot-director.yimian.xyz/',
         type: 'string',
         describe: 'director URL'
       })
@@ -36,7 +38,7 @@ module.exports = (yargs) => {
           ban.fail('Folder already exists!!');
           return;
         }
-        fs.mkdir(dir, function(err){
+        fs.mkdir(dir, async function(err){
            if (err) {
                 ban.fail('Creating failure!!');
                 throw err;
@@ -51,7 +53,8 @@ module.exports = (yargs) => {
               wifi: []
            }, null, 2));
            fs.writeFileSync(dir + '/.wiot/.gitignore', 'cache/\n\rcompiled_files/', 'utf-8');
-           ban.succeed('Initiate successfully!!');
+
+           ban.succeed('Initiate successfully!! Please go into the project folder and use `npm i wiot` to install packages.');
         });
     })
 
