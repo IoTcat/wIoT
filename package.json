@@ -1,6 +1,6 @@
 {
   "name": "wiot",
-  "version": "0.3.6",
+  "version": "0.3.8",
   "description": "A software-defined IoT OS basing on NodeJS.",
   "main": "src/cli/compiler.js",
   "repository": "git@github.com:iotcat/wIoT",
