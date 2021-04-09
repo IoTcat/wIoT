@@ -1,0 +1,3 @@
+[submodule "src/director"]
+	path = src/director
+	url = https://github.com/IoTcat/wIoT-director.git

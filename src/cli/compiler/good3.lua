@@ -1,1 +1,0 @@
-gpio.mode(4,gpio.OUTPUT);a66=0;tmr.create():alarm(100, tmr.ALARM_AUTO, function()gpio.write(4,a66); end);msg.onSend('a66',function(f,b) a66=b; end);

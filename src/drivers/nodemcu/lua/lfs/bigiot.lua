@@ -9,6 +9,7 @@ local F = function(DEVICEID, APIKEY, ctl_wire_obj)
     isConnect = true
     local r = sjson.decode(c)
     if r.M == 'say' then
+      ctl_wire_obj.trigger = tmr.time();
       ctl_wire_obj.reg = r.C;
     end
   end)
