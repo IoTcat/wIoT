@@ -14,16 +14,16 @@ let w = new wiot.wire(),
 
 let node = nodes[0];
 let node1 = nodes[1];
-		wiot.gpio(wiot.INPUT, node.D3, w1, node);
-		wiot.gpio(wiot.INPUT, node1.D3, w2, node1);
+		wiot.gpio(node, wiot.INPUT, node.D3, w1);
+		wiot.gpio(node1, wiot.INPUT, node1.D3, w2);
 
 		//or ($0+$1)%2+math.floor(($0+$1)/2)
 		//and math.floor(($0+$1)/2)
 		//xor ($0+$1)%2
 		//not ($0+1)%2
-		wiot.operate('(($0+$1)%2+1)%2', node, w, w1, w2);
+		wiot.operate(node, '(($0+$1)%2+1)%2', w, w1, w2);
 
-		wiot.gpio(wiot.OUTPUT, node.D4, w, node);
+		wiot.gpio(node, wiot.OUTPUT, node.D4, w);
 
-//wiot.pwm(nodes[0].D4, new wiot.wire(800), new wiot.wire(500), nodes[0]);
+//wiot.pwm(nodes[0], nodes[0].D4, new wiot.wire(800), new wiot.wire(500));
 

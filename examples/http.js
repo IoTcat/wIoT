@@ -16,8 +16,8 @@ let w = new wiot.wire(0),
 let node = nodes[0];
 let node1 = nodes[1];
 
-wiot.gpio(wiot.INPUT, node.D3, w1, node);
+wiot.gpio(node, wiot.INPUT, node.D3, w1);
 //wiot.gpio(wiot.INPUT, node1.D3, w2, node1);
 //wiot.print(node, w1, w1);
-wiot.operate(`'http://192.168.3.100:5001/?value='..$0`, node, w3, w1);
-wiot.http(w, w2, w3, node)
+wiot.operate(node, `'http://192.168.3.100:5001/?value='..$0`, w3, w1);
+wiot.http(node, w, w2, w3)

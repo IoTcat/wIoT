@@ -16,11 +16,11 @@ let w = new wiot.wire(0),
 let node = nodes[0];
 let node1 = nodes[1];
 
-wiot.gpio(wiot.INPUT, node1.D3, w3, node1);
-wiot.operate(wiot.if(`$1==1`, `math.abs($0%2047-1023)`, `1023`), node, w2, w, w3);
-wiot.operate('($0+20)%2048', node, w, w1);
-wiot.buffer(w1, w, node, .01, true);
+wiot.gpio(node1, wiot.INPUT, node1.D3, w3);
+wiot.operate(node, wiot.if(`$1==1`, `math.abs($0%2047-1023)`, `1023`), w2, w, w3);
+wiot.operate(node, '($0+20)%2048', w, w1);
+wiot.buffer(node, w1, w, .01, true);
 
-wiot.pwm(node.D4, w2, new wiot.wire(500), node);
+wiot.pwm(node, node.D4, w2, new wiot.wire(500));
 
 //wiot.print(node, w)

@@ -16,10 +16,10 @@ let w = new wiot.wire(0),
 let node = nodes[0];
 let node1 = nodes[1];
 
-wiot.gpio(wiot.INPUT, node.D3, w1, node);
-//wiot.gpio(wiot.INPUT, node1.D3, w2, node1);
+wiot.gpio(node, wiot.INPUT, node.D3, w1);
+//wiot.gpio(node1, wiot.INPUT, node1.D3, w2);
 //wiot.print(node, w1, w1);
 
-wiot.redis(w2, w1, node, '192.168.3.4', 'test2');
+wiot.redis(node, w2, w1, '192.168.3.4', 'test2');
 
 wiot.print(node, w2)

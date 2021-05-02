@@ -14,24 +14,24 @@ let w = new wiot.wire(0),
 
 let node = nodes[0];
 let node1 = nodes[1];
-/*		wiot.gpio(wiot.INPUT, node.D3, w1, node);
-		wiot.gpio(wiot.INPUT, node1.D3, w2, node1);
+/*		wiot.gpio(node, wiot.INPUT, node.D3, w1);
+		wiot.gpio(node1, wiot.INPUT, node1.D3, w2);
 
 		//or ($0+$1)%2+math.floor(($0+$1)/2)
 		//and math.floor(($0+$1)/2)
 		//xor ($0+$1)%2
 		//not ($0+1)%2
-		wiot.operate('(($0+$1)%2+1)%2', node, w, w1, w2);
+		wiot.operate(node, '(($0+$1)%2+1)%2', w, w1, w2);
 
-		wiot.gpio(wiot.OUTPUT, node.D4, w, node);
+		wiot.gpio(node, wiot.OUTPUT, node.D4, w);
 */
 
-	//wiot.gpio(wiot.INPUT, node1.D3, w2, node1);
-	wiot.adc(w1, node);
-	//wiot.gpio(wiot.OUTPUT, node.D4, w, node);
-	//wiot.operate('math.floor($0/600)', node, w, w1);
-	wiot.operate('($0/2)+300', node, w, w1);
-	//wiot.operate(wiot.if(wiot.if(`$0<400`, false, true), 700, 0), node, w, w1);
+	//wiot.gpio(node1, wiot.INPUT, node1.D3, w2);
+	wiot.adc(node, w1);
+	//wiot.gpio(node, wiot.OUTPUT, node.D4, w);
+	//wiot.operate(node, 'math.floor($0/600)', w, w1);
+	wiot.operate(node, '($0/2)+300', w, w1);
+	//wiot.operate(node,wiot.if(wiot.if(`$0<400`, false, true), 700, 0),  w, w1);
 
-wiot.pwm(nodes[0].D4, w, new wiot.wire(500), nodes[0]);
+wiot.pwm(nodes[0], nodes[0].D4, w, new wiot.wire(500));
 

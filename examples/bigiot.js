@@ -16,10 +16,10 @@ let w = new wiot.wire(0),
 
 let node = nodes[0];
 
-wiot.gpio(wiot.OUTPUT, node.D4, w, node);
+wiot.gpio(node, wiot.OUTPUT, node.D4, w);
 
-wiot.buffer(w, w2, node);
+wiot.buffer(node, w, w2);
 
 wiot.bigiot(node, 21249, 'ee37b3a2a', w3);
 
-wiot.operate(`${wiot.if(`$1=='play'`, 0, wiot.if(`$1=='stop'`, 1, `$0`))}`, node, w2, w3);
+wiot.operate(node, `${wiot.if(`$1=='play'`, 0, wiot.if(`$1=='stop'`, 1, `$0`))}`, w2, w3);

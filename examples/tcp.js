@@ -19,12 +19,12 @@ let w = new wiot.wire(0),
 let node = nodes[0];
 let node1 = nodes[1];
 
-wiot.gpio(wiot.INPUT, node.D3, w1, node);
-wiot.gpio(wiot.INPUT, node1.D3, w2, node1);
+wiot.gpio(node, wiot.INPUT, node.D3, w1);
+wiot.gpio(node1, wiot.INPUT, node1.D3, w2);
 //wiot.print(node, w1, w1);
 
-wiot.udp(w4,w5,w6,new wiot.wire(`'192.168.3.100'`), new wiot.wire(4443), w1, node);
-wiot.tcp(w,w1, node, '192.168.3.100', 4444);
-wiot.tcp(w3,w2, node, '192.168.3.100', 4444);
+wiot.udp(node), w4,w5,w6,new wiot.wire(`'192.168.3.100'`), new wiot.wire(4443), w1);
+wiot.tcp(node, w,w1, '192.168.3.100', 4444);
+wiot.tcp(node, w3,w2, '192.168.3.100', 4444);
 
 wiot.print(node, w, w3, w4, w5, w6);

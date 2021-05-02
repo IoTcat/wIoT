@@ -16,16 +16,16 @@ let w = new wiot.wire(0),
 
 let node = nodes[0];
 
-wiot.gpio(wiot.OUTPUT, node.D4, w, node);
+wiot.gpio(node, wiot.OUTPUT, node.D4, w);
 
-wiot.gpio(wiot.INPUT, node.D3, w1, node);
+wiot.gpio(node, wiot.INPUT, node.D3, w1);
 
-wiot.buffer(w, w1, node);
+wiot.buffer(node, w, w1);
 
-wiot.buffer(w, w2, node);
+wiot.buffer(node, w, w2);
 
-wiot.operate(`${wiot.if(`$0==0`, `'true'`, `'false'`)}`, node, w3, w);
-wiot.operate(`${wiot.if(`$0=='true'`, 0, 1)}`, node, w2, w4);
+wiot.operate(node, `${wiot.if(`$0==0`, `'true'`, `'false'`)}`, w3, w);
+wiot.operate(node, `${wiot.if(`$0=='true'`, 0, 1)}`, w2, w4);
 
 wiot.webpage(node, '122f3169fa7e12989bd7f1ed1c571b64', [{
 	id: 'a',
