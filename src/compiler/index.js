@@ -23,3 +23,6 @@ require(__dirname + '/operators/strSubStr.js')(wiot)
 
 /* modules */
 require(__dirname + '/modules/breathing.js')(wiot)
+
+
+module.exports = wiot;
