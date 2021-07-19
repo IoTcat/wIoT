@@ -5,7 +5,7 @@
 ![license](https://img.shields.io/npm/l/wiot)
 ![download](https://img.shields.io/npm/dt/wiot)
 
-wIoT - A distributed IoT network operating system for NodeJS
+wIoT - A distributed IoT network operating system for NodeMCU
 
 ## Dependencies
 
