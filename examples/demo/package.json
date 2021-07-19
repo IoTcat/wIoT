@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "wiot": "^0.3.9"
+  }
+}

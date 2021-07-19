@@ -1,0 +1,28 @@
+{
+  "name": "demo",
+  "entrance": "index.js",
+  "director": "https://wiot-director.yimian.xyz/",
+  "nodes": {
+    "27e4c": {
+      "nickname": "node1",
+      "msgport": 6789,
+      "wifiIndex": 0
+    },
+    "cc54c": {
+      "nickname": "node2",
+      "msgport": 6789,
+      "wifiIndex": 0
+    },
+    "3beaa": {
+      "nickname": "node3",
+      "msgport": 6789,
+      "wifiIndex": 0
+    }
+  },
+  "wifi": [
+    {
+      "ssid": "yimian-iot",
+      "pwd": "1234567890."
+    }
+  ]
+}

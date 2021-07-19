@@ -1,0 +1,1 @@
+_b=0;F_b=_b;_m=500;F_m=_m;pwm.setup(4,_m,_b);pwm.setduty(4,_b);tmr.create():alarm(10,tmr.ALARM_AUTO,function()if not(F_b==_b)then pwm.setduty(4,_b);end;F_b=_b;if not(F_m==_m)then pwm.setclock(4,_m);end;F_m=_m;end);msg.onSend('_b',function(from,body)_b=body;FR_b=from;end);
